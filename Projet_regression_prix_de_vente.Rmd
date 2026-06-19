@@ -1,0 +1,2726 @@
+---
+title: "Prédiction du prix de vente immobilier"
+author: "Baba Galle Ndiaye et  Essossimna Sansan"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: false
+    highlight: tango
+    theme: flatly
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, results = 'hidden', message=FALSE)
+```
+
+
+
+```{r}
+# Chargement des données
+library(tidyverse)
+library(lubridate)
+library(corrplot)
+library(randomForest)
+library(caret)
+library(ggplot2)
+library(cowplot)
+library(gridExtra)
+library(MASS)
+library(FactoMineR)
+library(nortest)
+library(lmtest)
+library(knitr)
+library(kableExtra)
+library(factoextra)
+library(corrplot)
+
+```
+
+# Introduction :
+
+L’immobilier représente l’un des marchés les plus importants de l’économie française. La prédiction du prix d’un bien immobilier est un enjeu majeur pour les acheteurs, vendeurs, notaires et investisseurs. Elle permet d’éviter les surestimations ou sous-estimations de valeur et de mieux comprendre les dynamiques du marché.
+
+
+ **Problématique**
+
+Le marché immobilier est influencé par une grande variété de facteurs structurels, géographiques et administratifs. Dans ce contexte, la question centrale de cette étude est la suivante :
+
+ **Quels sont les déterminants du prix de vente immobilier et dans quelle mesure les caractéristiques du bien permettent-elles de prédire ce prix ?**
+
+Cette problématique s’inscrit dans un cadre où les données disponibles sont hétérogènes, comportant à la fois des variables quantitatives (surfaces, nombre de pièces), qualitatives (type de local, commune) et administratives (code postal, section cadastrale).
+
+
+ **Objectif de l’étude**
+
+L’objectif principal est d’**analyser les relations entre les caractéristiques des biens immobiliers et leur prix de vente**, puis d’évaluer la capacité prédictive de différents modèles statistiques :
+
+- Régression linéaire (LM)
+- Modèle linéaire généralisé (GLM gaussien, lien log)
+- Méthodes de réduction dimensionnelle (PCR, PLS)
+- Méthodes de régularisation (Ridge, Lasso, Elastic Net)
+
+L’étude vise à déterminer si ces modèles permettent d’améliorer la prédiction du prix et d’identifier les variables les plus influentes.
+
+
+ **Variables d’intérêt**
+
+Le jeu de données initial contient **1387077 observations et 43 variables** .  
+Certaines variables sont administratives ou textuelles et ne sont pas pertinentes pour la modélisation.  
+Les variables retenues sont celles qui présentent un lien potentiel avec la valeur foncière.
+
+  **Variables quantitatives**
+  
+- **Surface.reelle.bati** : surface bâtie en m²  
+- **Surface.Carrez.du.1er.lot** : surface Carrez principale  
+- **Surface.terrain** : surface du terrain en m²  
+- **Nombre.pieces.principales** : nombre de pièces  
+- **Valeur foncière** (transformée en *log_prix*)
+
+ **Variables qualitatives**
+ 
+- **Code.postal** : localisation géographique  
+- **Code.type.local** : type de bien (maison, appartement, dépendance…)  
+- **Commune**, **Type.de.voie**, **Nature.mutation** (non retenues dans les modèles finaux)
+
+ **Variable cible**
+ 
+- **log_prix** : logarithme du prix de vente (valeur foncière)
+
+
+# Partie 1 – Exploration et Préparation des Données :
+
+## 1.1 Chargement et premier aperçu :
+
+La première étape consiste à charger les données et à en obtenir une vue d’ensemble statistique afin d’identifier les problèmes de qualité : valeurs manquantes, valeurs aberrantes, types de variables incorrects.
+
+**Chargement des données :**
+
+```{r}
+data_initial <- read.delim( 
+  "C:/Users/Alpha/Documents/Projet/ValeursFoncieres-2025-S1.txt",
+  sep = "|",
+  header = TRUE,
+  encoding = "UTF-8",
+  dec = ",",
+  stringsAsFactors = FALSE
+)
+
+# Échantillonner 10 000 lignes aléatoires
+set.seed(123)  # Fixer la graine pour des résultats reproductibles
+ data <- data_initial[sample(nrow(data_initial), 200000), ]
+
+# Sauvegarder dans un fichier
+write.csv(data, "data_200000_random.csv", row.names = FALSE)
+
+head(data)
+
+```
+
+**Premier aperçu :**
+
+```{r}
+dim(data)# Dimensions du dataset
+```
+Nous avons garder que **200000 observations et 43 variables** pour faire notre traitement de données
+
+```{r}
+str(data)         # Structure des variables
+```
+
+
+```{r}
+summary(data) # Statistiques descriptives
+```
+
+## 1.2 Gestion des valeurs manquantes :
+
+L’analyse du résumé statistique révèle un taux de valeurs manquantes très élevé pour certaines variables (X1 à X5 Articles.CGI : 100% de NA). Ces variables seront supprimées. Pour les autres, une stratégie d’imputation sera appliquée.
+
+**Visualisation :**
+
+```{r}
+# Calcul du taux de valeurs manquantes par variable
+taux_na <- data%>%
+  summarise(across(everything(), ~mean(is.na(.))*100)) %>%
+  pivot_longer(everything(), names_to = 'variable', values_to = 'pct_na') %>%
+  arrange(desc(pct_na))
+
+print(taux_na)
+# Représentation graphique
+ggplot(taux_na, aes(x = reorder(variable, pct_na), y = pct_na)) +
+  geom_col(fill = "#2E86C1") +
+  coord_flip() +
+  labs(
+    title = "Pourcentage de valeurs manquantes par variable",
+    x = "Variable",
+    y = "Pourcentage de NA (%)"
+  ) +
+  theme_minimal(base_size = 13)
+
+```
+
+
+**Suppression des variables avec > 95% de valeur manquante**
+
+```{r}
+vars_a_supprimer <- taux_na %>%
+  filter(pct_na > 95) %>%
+  pull(variable)
+
+data_clean <- data %>% dplyr::select(-all_of(vars_a_supprimer))
+```
+
+```{r}
+
+sum(is.na(data))
+
+```
+On a 350874 valeurs manquantes aux tolales dans base data.
+
+## 1.3 Traitement des valeurs aberrantes:
+
+La variable cible Valeur.fonciere présente un maximum de 107 140 800 €, soit une valeur extrême probablement liée à des transactions commerciales ou à des lots multiples. Ces observations seront filtrées pour se concentrer sur les transactions résidentielles classiques
+
+
+```{r}
+# Visualisation de la distribution du prix
+ggplot(data_clean, aes(x = Valeur.fonciere)) +
+  geom_histogram(fill = '#2E75B6', bins = 50) +
+  #scale_x_log10(labels = scales::comma) +
+  labs(title = 'Distribution du prix de vente ',
+       x = 'Valeur foncière (€)', y = 'Nombre de transactions') +
+  theme_minimal()
+# Filtrage : on garde les prix entre 10 000 et 2 000 000 euros
+data_filtre <- data_clean %>%
+  filter(Code.departement==63)
+
+```
+
+**on utilise la méthode d’imputation par la median :**
+
+```{r}
+data_clean <- data_filtre
+
+for (col in names(data_filtre)) {
+  
+  # Cas 1 : variable numérique → imputation par la médiane
+  if (is.numeric(data_filtre[[col]])) {
+    
+    med <- median(data_filtre[[col]], na.rm = TRUE)
+    data_clean[[col]][is.na(data_filtre[[col]])] <- med
+    
+  } else {
+    
+    # Cas 2 : variable qualitative → imputation par la modalité la plus fréquente
+    mode_value <- names(which.max(table(data_filtre[[col]])))
+    data_filtre[[col]][is.na(data_filtre[[col]])] <- mode_value
+  }
+}
+
+```
+
+```{r}
+
+sum(is.na(data_clean))
+
+```
+
+# Partie 2 – Sélection et analyses des variables :
+
+On va maintenant **symétriser les variables quantitatives** à l'aide de la méthode du boxcox et créer un nouveau data frame à partir de cela.
+On compare ensuite les histogrammes et boîtes à moustaches d'origine aux graphiques sur les données symétrisées.
+
+La méthode de boxcox s'appuie sur la *Transformée de boxcox* suivante :
+
+$$
+B(x, \lambda) = 
+\begin{cases}
+\frac{x^{\lambda} - 1}{\lambda} & \quad \text{si $\lambda \neq 0$}\\ 
+\log(x) & \quad \text{si $\lambda = 0$}
+\end{cases}
+$$
+
+
+
+## 2.1 Variable cible :
+
+La variable à prédire est Valeur.fonciere, qui représente le prix de vente du bien immobilier tel qu’enregistré dans l’acte notarié. Sa distribution étant fortement asymétrique à droite, il est recommandé d’appliquer une transformation logarithmique avant la modélisation.
+
+```{r}
+var_transf = log10(data_clean$Valeur.fonciere)
+
+
+
+graph1= ggplot(data_clean, aes(x=Valeur.fonciere)) + geom_histogram(aes( y= after_stat(density) ), color="black", fill="white")+ geom_density(alpha=0.2, fill="2") 
+
+box1=ggplot(data_clean , aes(x = factor(1), y = data_clean$Valeur.fonciere)) + geom_boxplot(fill = "white", colour = "3")
+
+
+
+graph2= ggplot(data_clean, aes(x=var_transf)) + geom_histogram(aes( y= after_stat(density) ), colour="black", fill="white")+ geom_density(alpha=0.2, fill="4")
+
+box2=ggplot(data_clean, aes(x = factor(1), y = var_transf )) + geom_boxplot(fill = "white", colour = "4")
+
+
+
+plot_grid(graph1, graph2, box1, box2, labels= c("Avant", "Apres"), ncol=2, nrow = 2)
+
+# Transformation logarithmique de la variable cible
+data_clean <- data_clean %>%
+  mutate(log_prix = log(Valeur.fonciere))
+
+```
+
+
+## 2.2 Préparation du jeu de données :
+`
+
+```{r}
+df_prix <- data_clean %>%
+  dplyr::select(
+    Valeur.fonciere, Surface.reelle.bati, Nombre.pieces.principales,
+    Type.local, Nature.mutation, Surface.terrain,
+    Code.departement, Code.postal, Nombre.de.lots,
+    Surface.Carrez.du.1er.lot, Code.type.local
+  ) %>%
+  mutate(
+    Type.local = as.factor(Type.local),
+    Nature.mutation = as.factor(Nature.mutation),
+    Code.departement = as.factor(Code.departement),
+
+    Surface.reelle.bati = ifelse(
+      is.na(Surface.reelle.bati),
+      median(Surface.reelle.bati, na.rm = TRUE),
+      Surface.reelle.bati
+    ),
+
+    Surface.terrain = ifelse(
+      is.na(Surface.terrain),
+      0,
+      Surface.terrain
+    )
+  ) %>%
+  tidyr::drop_na()
+
+```
+
+
+
+```{r}
+df_log_prix <- data_clean %>%
+  dplyr::select(
+    log_prix, Surface.reelle.bati, Nombre.pieces.principales,
+    Type.local, Nature.mutation, Surface.terrain,
+    Code.departement, Code.postal, Nombre.de.lots,
+    Surface.Carrez.du.1er.lot, Code.type.local
+  ) %>%
+  mutate(
+    Type.local = as.factor(Type.local),
+    Nature.mutation = as.factor(Nature.mutation),
+    Code.departement = as.factor(Code.departement),
+
+    Surface.reelle.bati = ifelse(
+      is.na(Surface.reelle.bati),
+      median(Surface.reelle.bati, na.rm = TRUE),
+      Surface.reelle.bati
+    ),
+
+    Surface.terrain = ifelse(
+      is.na(Surface.terrain),
+      0,
+      Surface.terrain
+    )
+  ) %>%
+  tidyr::drop_na()
+
+```
+
+```{r}
+head(df_log_prix)
+```
+
+
+
+## 2.3 Visualistion des variables quantitatives
+
+**Surface.reelle.bati**
+
+```{r}
+quanti=df_prix[,sapply(df_prix,is.numeric)]
+var_transf1 = log10(quanti$Surface.reelle.bati)
+graph1= ggplot(quanti, aes(x=Surface.reelle.bati)) + geom_histogram(aes( y= after_stat(density) ), color="black", fill="white")+ geom_density(alpha=0.2, fill="2") 
+
+box1=ggplot(quanti , aes(x = factor(1), y = quanti$Surface.reelle.bati)) + geom_boxplot(fill = "white", colour = "3")
+
+
+
+graph2= ggplot(quanti, aes(x=var_transf1)) + geom_histogram(aes( y= after_stat(density) ), colour="black", fill="white")+ geom_density(alpha=0.2, fill="4")
+
+box2=ggplot(quanti, aes(x = factor(1), y = var_transf1 )) + geom_boxplot(fill = "white", colour = "4")
+
+
+plot_grid(graph1, graph2, box1, box2, labels= c("Avant", "Apres"), ncol=2, nrow = 2)
+
+```
+
+**Nombre.pieces.principales**
+
+```{r}
+var_transf1 = log10(quanti$Nombre.pieces.principales)
+graph1= ggplot(quanti, aes(x=Nombre.pieces.principales)) + geom_histogram(aes( y= after_stat(density) ), color="black", fill="white") 
+
+box1=ggplot(quanti , aes(x = factor(1), y = quanti$Nombre.pieces.principales)) + geom_boxplot(fill = "white", colour = "3")
+
+graph2= ggplot(quanti, aes(x=var_transf1)) + geom_histogram(aes( y= after_stat(density) ), colour="black", fill="white")
+
+box2=ggplot(quanti, aes(x = factor(1), y = var_transf1 )) + geom_boxplot(fill = "white", colour = "4")
+
+plot_grid(graph1, graph2, box1, box2, labels= c("Avant", "Apres"), ncol=2, nrow = 2)
+
+```
+
+
+
+**Surface.terrain**
+
+```{r}
+var_transf1 = log10(quanti$Surface.terrain)
+graph1= ggplot(quanti, aes(x=Surface.terrain)) + geom_histogram(aes( y= after_stat(density) ), color="black", fill="white")+ geom_density(alpha=0.2, fill="2") 
+
+box1=ggplot(quanti , aes(x = factor(1), y = quanti$Surface.terrain)) + geom_boxplot(fill = "white", colour = "3")
+
+
+
+
+
+graph2= ggplot(quanti, aes(x=var_transf1)) + geom_histogram(aes( y= after_stat(density) ), colour="black", fill="white")+ geom_density(alpha=0.2, fill="4")
+
+box2=ggplot(quanti, aes(x = factor(1), y = var_transf1 )) + geom_boxplot(fill = "white", colour = "4")
+
+
+plot_grid(graph1, graph2, box1, box2, labels= c("Avant", "Apres"), ncol=2, nrow = 2)
+
+```
+
+
+
+**Code.postal**
+
+```{r}
+var_transf1 = log10(quanti$Code.postal)
+graph1= ggplot(quanti, aes(x=Code.postal)) + geom_histogram(aes( y= after_stat(density) ), color="black", fill="white")+ geom_density(alpha=0.2, fill="2") 
+
+box1=ggplot(quanti , aes(x = factor(1), y = quanti$Code.postal)) + geom_boxplot(fill = "white", colour = "3")
+
+
+
+
+
+graph2= ggplot(quanti, aes(x=var_transf1)) + geom_histogram(aes( y= after_stat(density) ), colour="black", fill="white")+ geom_density(alpha=0.2, fill="4")
+
+box2=ggplot(quanti, aes(x = factor(1), y = var_transf1 )) + geom_boxplot(fill = "white", colour = "4")
+
+
+plot_grid(graph1, graph2, box1, box2, labels= c("Avant", "Apres"), ncol=2, nrow = 2)
+
+```
+
+
+**Nombre.de.lots**
+
+```{r}
+var_transf1 = log10(quanti$Nombre.de.lots)
+graph1= ggplot(quanti, aes(x=Nombre.de.lots)) + geom_histogram(aes( y= after_stat(density) ), color="black", fill="white") 
+
+box1=ggplot(quanti , aes(x = factor(1), y = quanti$Nombre.de.lots)) + geom_boxplot(fill = "white", colour = "3")
+
+graph2= ggplot(quanti, aes(x=var_transf1)) + geom_histogram(aes( y= after_stat(density) ), colour="black", fill="white")
+
+box2=ggplot(quanti, aes(x = factor(1), y = var_transf1 )) + geom_boxplot(fill = "white", colour = "4")
+
+
+plot_grid(graph1, graph2, box1, box2, labels= c("Avant", "Apres"), ncol=2, nrow = 2)
+
+```
+
+**Surface.Carrez.du.1er.lot**
+
+```{r}
+var_transf1 = log10(quanti$Surface.Carrez.du.1er.lot)
+graph1= ggplot(quanti, aes(x=Surface.Carrez.du.1er.lot)) + geom_histogram(aes( y= after_stat(density) ), color="black", fill="white")+ geom_density(alpha=0.2, fill="2") 
+
+box1=ggplot(quanti , aes(x = factor(1), y = quanti$Surface.Carrez.du.1er.lot)) + geom_boxplot(fill = "white", colour = "3")
+
+
+
+
+
+graph2= ggplot(quanti, aes(x=var_transf1)) + geom_histogram(aes( y= after_stat(density) ), colour="black", fill="white")+ geom_density(alpha=0.2, fill="4")
+
+box2=ggplot(quanti, aes(x = factor(1), y = var_transf1 )) + geom_boxplot(fill = "white", colour = "4")
+
+
+plot_grid(graph1, graph2, box1, box2, labels= c("Avant", "Apres"), ncol=2, nrow = 2)
+
+```
+
+**Code.type.local**
+
+```{r}
+quanti=df_prix[,sapply(df_prix,is.numeric)]
+var_transf1 = log10(quanti$Code.type.local)
+graph1= ggplot(quanti, aes(x=Code.type.local)) + geom_histogram(aes( y= after_stat(density) ), color="black", fill="white") 
+
+box1=ggplot(quanti , aes(x = factor(1), y = quanti$Code.type.local)) + geom_boxplot(fill = "white", colour = "3")
+
+graph2= ggplot(quanti, aes(x=var_transf1)) + geom_histogram(aes( y= after_stat(density) ), colour="black", fill="white")
+
+box2=ggplot(quanti, aes(x = factor(1), y = var_transf1 )) + geom_boxplot(fill = "white", colour = "4")
+
+
+plot_grid(graph1, graph2, box1, box2, labels= c("Avant", "Apres"), ncol=2, nrow = 2)
+
+```
+Nous avons appliquer la symétrisation de toutes les variables et aprés traitement on se retrouve avec **2625 observation et 11 variables**.
+
+
+
+
+## 2.4 Corrélations 
+
+*Matrice de corrélation avec la valeur foncière* et *la valeur log*
+
+
+```{r}
+library(corrplot)
+
+# --- Matrice 1 ---
+correl  <- cor(quanti)
+
+# --- Matrice 2 (standardisée) ---
+df_sym <- df_log_prix %>%
+  mutate(across(where(is.numeric), ~ scale(.)[,1]))
+sym_quanti <- df_log_prix[, sapply(df_log_prix, is.numeric)]
+correl1 <- cor(sym_quanti)
+
+# --- Palette ---
+col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
+
+# --- Affichage côte à côte ---
+#par(mfrow = c(1, 2))
+
+corrplot(abs(correl),  # valeurs absolues
+         method = "color",
+         col = col(200),
+         addCoef.col = "black",
+         tl.col = "black",
+         tl.srt = 45,
+         title = "Corrélations brutes",
+         mar = c(0,0,2,0))
+
+corrplot(abs(correl1),  # valeurs absolues
+         method = "color",
+         col = col(200),
+         addCoef.col = "black",
+         tl.col = "black",
+         tl.srt = 45,
+         title = "Corrélations standardisées",
+         mar = c(0,0,2,0))
+
+```
+
+
+
+
+## 2.5 ACP 
+
+```{r}
+#install.packages("FactoMineR")
+library(FactoMineR)
+pca <- PCA(quanti, graph=FALSE, ncp=4, scale.unit=TRUE)
+plot(pca, axes = c(1, 2), cex=1.6, choix="var")
+
+pca <- PCA(sym_quanti, graph=FALSE, ncp=4, scale.unit=TRUE)
+plot(pca, axes = c(1, 2), cex=1.6, choix="var")
+```
+**Tableau récapitulatif des corrélations et pour les contributions ACP**
+
+```{r}
+# Sélection des variables
+vars <- c("log_prix",
+          "Surface.reelle.bati",
+          "Nombre.pieces.principales",
+          "Surface.terrain",
+          "Code.postal",
+          "Nombre.de.lots",
+          "Surface.Carrez.du.1er.lot",
+          "Code.type.local")
+
+# Matrice de corrélation
+cor_mat <- cor(sym_quanti[ , vars], use = "complete.obs")
+
+# Tableau récapitulatif
+recap <- data.frame(
+  Variable = vars[-1],
+  Correlation_avec_log_prix = round(cor_mat[-1, 1], 3)
+)
+
+print(recap)
+
+```
+```{r}
+library(FactoMineR)
+library(factoextra)
+
+res_pca <- PCA(sym_quanti[, vars[-1]], scale.unit = TRUE, graph = FALSE)
+
+contrib <- res_pca$var$contrib[, 1:2]  # contributions Dim1 et Dim2
+round(contrib, 2)
+
+```
+
+
+# Partie 3 – Modélisation Statistique :
+
+
+## 1 - Régression linéaire multiple :
+
+### 1.1  La théorie 
+
+#### **a) Le modèle**
+
+On a le modèle suivant :
+
+$$Y_{i} = \sum_{j = 0}^{p} a_{j}X_{i,j} + \epsilon_{i}$$ pour $i = 1, ..., n$
+
+où $X_{0,j} = 1$
+
+La variable Y est la variable à expliquer et les variables $X_{i}$ sont les variables explicatives. <br />
+Les variables $a_{j}$, (où $j = 0, ..., p$) sont les paramètres à estimer de notre modèle. <br />
+Les $\epsilon_{i}$ sont les erreurs. <br />
+
+On peut aussi écrire ce modèle sous la forme matricielle suivante :
+$Y = XA + \epsilon$
+
+#### **b) Les hypothèses**
+
+Nous devrons vérifier les hypothèses suivantes :
+
+*Hypothèses à priori :*
+
+1. $r(X_{i},Y) != 0$ (toutes les corrélations ne doivent pas être nulles)
+
+2. La matrice X est de plein rang : les $X_{i}$ ne sont pas colinéaires (ils sont linéairement indépendants) : cela assure que $X^{T}X$ est inversible.
+
+3. n ? p + 1 il faut savoir ce qu'on a à la place de ? (<, >, =) ce qui revient à résoudre le modèle de régression linéaire c'est-à-dire une équation à n équations et p inconnues
+
+* si n = p + 1, la “droite de régression” est celle qui passe par tous les points 
+* si n > p + 1, une unique solution
+* si n < p + 1, une infinité de solution
+
+*Hypothèses a posteriori :*
+
+4. $\mathbb{E}(\epsilon_{i})=0$, $Var(\epsilon_{i})=\sigma²)$ et les $\epsilon_{i}$ sont non corrélés. De plus, on doit avoir $cov(X_{i}, \epsilon_{i}) = 0$
+
+5. Les $\epsilon_{i}$ sont normales.
+
+
+### 1.2 Estimation des moindres carrés ordinaire (MCO) :
+
+
+Un **estimateur Â** du vecteur A peut être trouvé par **la méthode d'estimation des moindres carrés ordinaire** (possible grâce à l'hypothèse numéro 2). <br />
+L'objectif est de trouver le paramètre A qui minimise la somme des carrés des erreurs entre les valeurs prévues et observées.
+
+Voici son expression $Â = (X^{T}X)^{-1}X^{T}Y$
+
+**Cet estimateur a les propriétés suivantes : **
+1. Il est sans biais : $\mathbb{E}(Â) = A$
+
+2. C'est le le meilleur estimateur sans biais linéaire (il est de variance minimum) : il est appelé *BLUE* (Best Linear Unbiased Estimator).
+
+3. Sous l’hypothèse de normalité des $\epsilon_{i}$, Â est l’estimateur du maximum de vraisemblance. Il est donc efficace.
+De plus, Â ~ $\mathcal{N}(A, \sigma²(X^{T}X)^{-1})$
+
+4. Â $\to^{\mathcal{L}} \mathcal{N}(A, \dfrac{\sigma²Q^{-1}}{n})$. Si l’hypothèse de normalité n’est pas vérifiée mais que l’hypothèse $\dfrac{X^{T}X}{n} \to Q$ (inversible) est vérifiée, le résultat est valide.
+
+5. Â est convergent en probabilité.
+
+**Loi des paramètres :**
+
+- $Var(Â) = \sigma²(X^{T}X)^{-1}$ 
+- La variance des $a_{j}$ est $\sigma²_{a_{j}} = [\sigma²(X^{T}X)^{-1}]_{j,j}$
+On peut remplacer $\sigma²$ par son estimateur sans biais $s²$.
+
+### 1.3 Application 
+
+#### 1.3.1 Création du modèle 
+
+
+Voici les différentes variables qui constituent notre problème de régression linéaire : <br />
+
+**Variable à expliquer** : le prix immobilier, que l'on va noter Y <br />
+
+**Variables explicatives** : <br />
+  - Nombre.pieces.principale, notée $X_{1}$ <br />
+  - Code.posta, noté $X_{2}$ <br />
+  - Surface.Carrez.du.1er.lo
+  - Surface.reelle.bati
+  - Surface.terrain
+  - Nombre.de.lots
+  - Code.type.local 
+
+**Définissons tout d'abord les matrices de ce système : **
+
+```{r matrix-creation}
+library(Matrix)
+
+#Matrice (n, 1) Y
+Y = sym_quanti$log_prix
+
+p = 7 #nombre de variables explicatives
+n = length(sym_quanti$log_prix) #nombre d'observations
+
+ones_vector = rep(1, n) #Vecteur de dimension n qui contient seulement des 1
+
+#On combine ensuite les vecteurs colonnes pour former notre matrice X (n, 3) :
+X = cbind(ones_vector, sym_quanti$Surface.reelle.bati, sym_quanti$Nombre.pieces.principales,sym_quanti$Surface.terrain,sym_quanti$Code.postal,sym_quanti$Nombre.de.lots,sym_quanti$Surface.Carrez.du.1er.lot,sym_quanti$Code.type.local) 
+print("La matrice X est de la forme :")
+print(head(X))
+```
+
+
+#### 1.3.2 Vérification des hypothèses a priori :
+
+Nous allons vérifier les différentes hypothèses de notre problème de régression linéaire :
+
+```{r linear-regression-priori-hypothesis}
+library(matlib)
+hypothesis_vector = c()
+
+#1) Il existe bien des corrélations non nulles
+hypothesis_vector = c(hypothesis_vector, T)
+
+#2)
+full_rank = (rankMatrix(X)[1] == ncol(X))
+hypothesis_vector = c(hypothesis_vector, full_rank)
+
+#3) n > p + 1 : il y a une unique solution à l'équation
+unique_sol = (n > (p + 1))
+hypothesis_vector = c(hypothesis_vector, unique_sol)
+
+#On vérifie si toutes les hypothèses sont vérifiées
+if(all(hypothesis_vector)){
+  print("Toutes les hypothèses ont été vérifiées")
+}
+```
+
+### 1.3.3 Application de l'estimation des moindres carrés :
+
+Ici, on construit Â de façon matriciel puis le résidu de nos erreurs.
+
+```{r MCO}
+library(matlib)
+
+#Le symbole %*% permet de faire le produit de deux matrices sur R
+A = solve(t(X) %*% X) %*% t(X) %*% Y
+print("Matrice Â :")
+print(A)
+
+epsilon = Y - (X %*% A) #l'estimateur de l'erreur
+```
+
+### Modèle 1 : Régression linéaire (LM)
+
+Le modèle linéaire estimé est :
+
+$$
+\log(prix_i) = 
+\beta_0 
++ \beta_1 \cdot \text{Surface.reelle.bati}_i
++ \beta_2 \cdot \text{Nombre.pieces.principales}_i
++ \beta_3 \cdot \text{Surface.terrain}_i
++ \beta_4 \cdot \text{Code.postal}_i
++ \beta_5 \cdot \text{Nombre.de.lots}_i
++ \beta_6 \cdot \text{Surface.Carrez.du.1er.lot}_i
++ \beta_7 \cdot \text{Code.type.local}_i
++ \varepsilon_i
+$$
+
+avec :
+
+$$
+\varepsilon_i \sim \mathcal{N}(0, \sigma^2)
+$$
+
+
+#### 1.3.4 Utilisation de la fonction lm :
+
+```{r lm}
+linear = lm(log_prix ~ quanti$Surface.reelle.bati + quanti$Nombre.pieces.principales +quanti$Surface.terrain + quanti$Code.postal + quanti$Nombre.de.lots + quanti$Surface.Carrez.du.1er.lot + quanti$Code.type.local,data=sym_quanti)
+linear
+summary(linear)
+```
+le modèle est statistiquement significatif car la Prob (F-statistic) = 71.16. Cela signifie qu'au moins une des variables explicatives a un effet sur la valeur foncière. Cependant, le  R2 est très faible (15.99%). En effet, le modèle n'explique que 15.99% de la variance de la valeur fonciére. Il manque probablement des variables importantes, ou alors la relation entre ces varibles est non linéaire.
+
+### 1.4 Intervalles de confiance de chaque paramètre :
+
+L'intervalle de confiance au niveau $1 - \alpha$ est : 
+I = [$â_{j} \pm \hat \sigma_{a_{j}} \times t_{n-p-1}(1-\dfrac{\alpha}{2})$] où t est le fractile d'ordre $1-\dfrac{\alpha}{2}$ d'une loi de Student à $n-p-1$ degrés de libertés.
+
+où $\hat \sigma_{a_{j}}$ est est le $j^{ème}$ élément de la diagonale de la matrice $\sigma²(X^{T}X)^{-1}$.
+
+```{r confidence-interval}
+sigma_hat = var(epsilon)[1]*solve(t(X) %*% X)
+alpha = 0.05
+
+for(j in 1:8){
+  a_j = A[j]
+  sigma_hat_j = diag(sigma_hat)[j]
+  fractile = 1-alpha/2
+  student = qt(fractile, df=(n-p-1))
+  I = c(a_j - sigma_hat_j * student, a_j + sigma_hat_j * student)
+  print(paste("Intervalle de confiance pour le paramètre a_",(j - 1), " :"))
+  print(I)
+}
+```
+### 1.4 Significativité :
+
+**Significativité simple :**
+
+On veut tester $H_{0} : a_{0} = 0$ contre $H_{1} : a_{0} \neq 0$
+... $H_{0} : a_{2} = 0$ contre $H_{1} : a_{2} \neq 0$
+
+Avec l'intervalle de confiance trouvé précédemmment on remarque que 0 n'appartient qu'au premier intervalle de confiance. Pour $a_{0}$, on ne rejete pas $H_{0}$, mais on le rejete pour $a_{1}$, $a_{2}$.
+
+```{r signif-simple}
+print(paste("Test de Student, p-value :", t.test(x = X, mu = 0, conf.level = 0.95)$p.value))
+```
+
+La p-value du test de Student est largement inférieure à 5% donc le modèle dans son ensemble est statistiquement significatif.
+
+**Significativité globale :**
+
+On veut tester $H_{0} : a_{0} = a_{1} = a_{2} = 0$ contre $H_{1} :$ l'un des coefficients au moins n'est pas nul. 
+En regardant les intervalles de confiance, on remarque que l'on rejette $H_{0}$ car plusieurs coefficients $a_{i}$ ont des intervalles de confiance ne contenant pas 0.
+
+Dans la régression linéaire effectuée avec *lm*, on peut remarquer que la p-value est de très inférieure à 5% donc le modèle est globalement significatif.
+
+### 1.5 Qualité d'ajustement du modèle 
+
+Pour voir la qualité d'ajustement de notre modèle, nous allons étudier ces différents coefficients : R², RMSE, MAE, AIC, BIC.
+
+Dans un premier temps, nous allons choisir des modèles de façon arbitraire et allons les comparer entre eux.
+
+Nous allons aussi comparer les valeurs trouvées pour notre modèle avec celles pour d'autres modèles : <br />
+
+- le modèle n°1 est le modèle que nous avions utilisé plus haut (linear)
+
+- Y en fonction de Nombre.pieces.principales et Surface.reelle.bati (modèle 2)<br />
+
+- Y en fonction du Surface.terrain, Nombre.pieces.principales et Surface.reelle.bati (modèle 3)<br />
+
+- Y en fonction de Nombre.pieces.principales, Surface.terrain, Surface.reelle.bati et Nombre.de.lots (modèle 4)
+
+
+```{r adjust-quality-simple}
+library(knitr)
+#library(Metrics)
+
+c2 = c("mesure la qualité de la prédiction du modèle (plus il est proche de 1, plus le modèle est bon)", "indique à quel point les valeurs prédites sont éloignées de nos valeurs observées", "erreur absolue moyenne entre les valeurs prédites et observées", "plus la valeur est faible, plus le modèle est bon", "même principe que pour AIC")
+coeff_table = data.frame(c2) 
+colnames(coeff_table) = c("Description")
+rownames(coeff_table) = c("R²", "RMSE", "MAE", "AIC", "BIC")
+  
+kable(coeff_table)
+```
+
+```{r models}
+model1 = linear # le modèle n°1 est le modèle que nous avions utilisé plus haut (linear)
+model2 = lm(Y ~ quanti$Nombre.pieces.principales + quanti$Surface.reelle.bati)
+model3 = lm(Y ~ quanti$Surface.terrain + quanti$Nombre.pieces.principales + quanti$Surface.reelle.bati)
+model4 = lm(Y ~ quanti$Nombre.pieces.principales+ quanti$Surface.terrain + quanti$Surface.reelle.bati + quanti$Nombre.de.lots)
+```
+
+Nous pouvons faire cela de façon automatique avec un StepAIC, qui va comparer tous les modèles possibles de sélectionner le meilleur. C'est notamment très utile lorsqu'il y a beaucoup de variables.
+
+**StepAIC :**
+
+**-> Sélection pas à pas ascendante (forward) :**
+
+```{r StepAIC_forward}
+#m0=lm(Y~1,data=df)
+reg_AIC_f = stepAIC(linear, scope=formula(linear), direction="forward", trace = F)
+summary(reg_AIC_f)
+```
+
+On retrouve notre modèle n°1 avec Y en fonction de X.
+
+**-> Sélection pas à pas descendante (backward) :**
+
+```{r StepAIC_backward}
+reg_AIC_b = stepAIC(linear, direction = "backward", trace=F)
+summary(reg_AIC_b)
+```
+
+On retrouve encore notre modèle initial
+
+```{r}
+# Directions de sélection
+direction <- c("backward", "forward", "stepwise/both")
+
+# Colonnes du tableau (variables)
+colonnes <- colnames(sym_quanti)
+
+# Création du tableau vide
+conclusion1 <- data.frame(colonnes, matrix(NA, nrow = length(colonnes), ncol = 3))
+colnames(conclusion1)[-1] <- direction
+
+# --- Remplissage des cases ---
+
+# Variables exclues par backward et stepwise
+vars_exclues <- c(1, 7)  # log_prix et Surface.Carrez.du.1er.lot
+
+# Marquage des exclusions
+conclusion1[vars_exclues, "backward"] <- cell_spec("X", color = "red")
+conclusion1[vars_exclues, "stepwise/both"] <- cell_spec("X", color = "red")
+
+# Marquage des inclusions pour backward et stepwise
+vars_incluses <- setdiff(1:length(colonnes), vars_exclues)
+
+conclusion1[vars_incluses, "backward"] <- cell_spec("O", color = "green")
+conclusion1[vars_incluses, "stepwise/both"] <- cell_spec("O", color = "green")
+
+# Forward sélectionne tout
+for (i in 1:length(colonnes)) {
+  conclusion1[i, "forward"] <- cell_spec("O", color = "green")
+}
+
+# --- Affichage du tableau ---
+kable(conclusion1, format = "html", align = "c", escape = FALSE) %>%
+  kable_styling(bootstrap_options = "striped", full_width = FALSE)
+
+```
+ 
+**StepAIC avec le critère BIC :**
+
+**-> selection pas à pas ascendante (forward):**
+
+```{r StepAIC_BIC_forward}
+#m0=lm(Y~1,data=quanti)
+reg_AIC_BIC_f = stepAIC(linear, scope=formula(linear), direction="forward", trace = F, k=log(nrow(quanti)))
+summary(reg_AIC_BIC_f)
+```
+
+**-> selection pas à pas descendante (backward):**
+
+```{r StepAIC_BIC_backward}
+reg_AIC_BIC_b = stepAIC(linear, direction = "backward", trace=F, k=log(nrow(quanti)))
+summary(reg_AIC_BIC_b)
+```
+
+Comme pour le stepAIC nous retrouvons le modèle 1
+
+Tableau récapitulatif :
+
+```{r recap_quality}
+library(kableExtra)
+
+# Fonctions robustes
+rmse <- function(y, yhat){
+  sqrt(mean((y - yhat)^2))
+}
+
+mae <- function(y, yhat){
+  mean(abs(y - yhat))
+}
+
+v1 <- function(model){
+  summary(model)$r.squared
+}
+
+v2 <- function(model){
+  rmse(Y, predict(model))
+}
+
+v3 <- function(model){
+  mae(Y, predict(model))
+}
+
+v4 <- function(model){
+  AIC(model)
+}
+
+v5 <- function(model){
+  BIC(model)
+}
+
+models = list(model1, model2, model3, model4)
+
+vecteur1 = unlist(lapply(models, FUN=v1))
+vecteur2 = unlist(lapply(models, FUN=v2))
+vecteur3 = unlist(lapply(models, FUN=v3))
+vecteur4 = unlist(lapply(models, FUN=v4))
+vecteur5 = unlist(lapply(models, FUN=v5))
+
+tableau = data.frame(vecteur1, vecteur2, vecteur3, vecteur4, vecteur5
+                     )
+
+colnames(tableau) = c("R²","RMSE", "MAE", "AIC","BIC"
+                      )
+
+rownames(tableau) = c("model_1","model_2","modele_3","modele_4")
+
+colnames(tableau) <- c(
+  "<span style='color:#1f77b4;'>R²</span>",
+  "<span style='color:#d62728;'>RMSE</span>",
+  "<span style='color:#2ca02c;'>MAE</span>",
+  "<span style='color:#9467bd;'>AIC</span>",
+  "<span style='color:#8c564b;'>BIC</span>"
+)
+
+tableau %>%
+  kbl(escape = FALSE) %>%
+  kable_paper(full_width = FALSE, lightable_options = "hover")
+
+
+```
+
+
+Le premier modèle, celui qu'on avait initialement choisi, semble être le meilleur.
+
+### 1.6  Diagnostic du modèle 
+
+#### 1.6.1 Rappel des Hypothèses à postériori 
+
+1. Le model est linéaire
+
+2. $E(\varepsilon_i) = 0$ 
+
+3.$\sigma^2(\varepsilon_i) =cte= \sigma^2 \ ∀ \ i = 1, ..., n$
+
+4. independance des  $\epsilon_i$
+
+5.  Les $\epsilon_i$ sont des variables aléatoires normales.
+
+#### a) Linéarité du modèle
+
+------------------------------------------------------------------------
+
+**Visualisation graphique**
+
+------------------------------------------------------------------------
+
+```{r}
+plot(model1, which = 2,col=5)
+```
+
+------------------------------------------------------------------------
+
+Les résidus ne sont pas répartis de manière aléatoire autour de 0. Cela
+suggère que le modèle n'est pas linéaire.
+
+------------------------------------------------------------------------
+
+**Tests Statistiques**
+
+**Test de Rainbow**
+
+
+Le test de Rainbow consiste à étendre le modèle linéaire de base en introduisant des termes non linéaires des variables explicatives \(X\), par exemple des termes quadratiques ou cubiques.
+
+On considère, par exemple, un modèle polynomial de degré 2 :
+
+
+
+\[
+y = \beta_0 + \beta_1 X_1 + \beta_2 X_2 + \cdots + \beta_k X_k
+    + \gamma_1 X_1^2 + \gamma_2 X_2^2 + \cdots + \gamma_k X_k^2 + \varepsilon
+\]
+
+
+
+L’objectif est de tester si les coefficients des termes quadratiques
+\(\gamma_1, \gamma_2, \ldots, \gamma_k\) sont significativement différents de zéro.
+
+L’hypothèse nulle et l’hypothèse alternative s’écrivent alors :
+
+
+
+\[
+H_0 : \gamma_1 = \gamma_2 = \cdots = \gamma_k = 0
+\]
+
+
+
+
+\[
+H_1 : \exists\, j \in \{1,\ldots,k\} \text{ tel que } \gamma_j \neq 0
+\]
+
+
+
+Si l’hypothèse nulle est rejetée, cela suggère que le modèle linéaire est mal spécifié et qu’une relation non linéaire entre \(y\) et au moins une des variables \(X_j\) est présente.
+
+------------------------------------------------------------------------
+
+```{r}
+library(lmtest)
+raintest(model1)
+
+```
+Au seuil de 5 %, **on rejette l’hypothèse nulle**.  
+Cela signifie que :
+
+- Le modèle **présente de preuve significative de non linéarité**.  
+- La relation linéaire ne semble pas **globalement adéquate**,,ce qui peut inciter à rester prudent.
+
+
+**Test de Ramsey RESET**
+
+Le test RESET de Ramsey permet de vérifier si le modèle de régression est correctement spécifié.  
+Il consiste à ajouter au modèle initial des puissances des valeurs ajustées (par exemple \(\hat{y}^2\), \(\hat{y}^3\)) et à tester si ces termes apportent une amélioration significative.
+
+Dans notre cas, le test donne :
+
+
+
+Hypotèses :
+
+-   $H_O$: Le modèle est linéaire
+
+-   $H_1$: Le modèle est non linéaire
+
+
+```{r}
+#Test de ramsey 
+resettest(model1)
+
+```
+Nous rejetons clairement l’hypothèse nulle \(H_0\).  
+
+Cela signifie que :
+
+- Le modèle **n’est pas correctement spécifié**.  
+- Il existe probablement des **relations non linéaires** non prises en compte,ou des **variables explicatives manquantes**,
+
+
+------------------------------------------------------------------------
+
+**Test de Tsay**
+
+------------------------------------------------------------------------
+
+Hypotèses :
+
+-   $H_O$: Le modèle est linéaire
+
+-   $H_1$: Le modèle est non linéaire
+
+```{r}
+tsay.test <- function(model1) {
+  res <- residuals(model1)
+  fitted_values <- fitted(model1)
+  new_modele <- lm(res ~ poly(fitted_values, 2, raw = TRUE))
+  summary(new_modele)
+}
+
+tsay.test(model1)
+
+```
+
+Les deux coefficients sont significatifs (p-value proche de zéros) pour les
+deux). Cela signifie que la relation entre X et Y n’est pas strictement
+linéaire.
+
+------------------------------------------------------------------------
+
+#### 1.6.2 Moyenne des résidus 
+
+------------------------------------------------------------------------
+
+**Visualisation graphique**
+
+------------------------------------------------------------------------
+
+```{r}
+hist(epsilon, main = "Distribution des Résidus", xlab = "Résidus", breaks = 30)
+abline(v = mean(epsilon), col = "red", lwd = 2, lty = 2)  
+```
+
+La ligne rouge représente la moyenne des résidus, elle est très
+proche de 0.
+
+------------------------------------------------------------------------
+
+**Tests Statistiques**
+
+------------------------------------------------------------------------
+
+**Test de Student (t-test)**
+
+------------------------------------------------------------------------
+
+Hypothèses :
+
+-   $H_0$ : E(ε) = 0(moyenne des erreurs est nulle)
+
+-   $H_1$ : E(ε) ≠ 0 (présence d’un biais)
+
+------------------------------------------------------------------------
+
+```{r}
+test_t <- t.test(epsilon, mu = 0)
+print(test_t)
+```
+
+------------------------------------------------------------------------
+
+La **statistique du test** est extrêmement proche de zéro, indiquant que
+la différence entre la moyenne observée et zéro est négligeable.
+
+La **p-value** très élevée (p = 1) signifie qu'il n'y a aucune preuve
+statistique contre l'hypothèse nulle E(ε) = 0.
+
+**L'intervalle de confiance à 95%** est [-0.07172264, 0.07172264]. Cet intervalle contient zéro, ce qui confirme que la moyenne des résidus est compatible avec 0.
+
+**Interprétation**
+
+Ces résultats soutiennent la validité de notre modèle
+de régression linéaire. La moyenne des résidus proche de zéro et la
+p-value élevée indiquent que les hypothèses fondamentales de la
+régression linéaire sont respectées, notamment l'hypothèse que
+l'espérance des erreurs est nulle.
+
+------------------------------------------------------------------------
+
+```{r}
+epsilon <- residuals(model1)
+mean_epsilon <- mean(epsilon)
+print(paste("Moyenne des erreurs :", mean_epsilon))
+```
+
+------------------------------------------------------------------------
+
+**La moyenne des résidus** obtenue est -1.17701483480305e-16, soit
+approximativement 0. Ce résultat est conforme aux attentes en régression
+linéaire, où les résidus doivent en moyenne être proches de zéro.
+
+------------------------------------------------------------------------
+
+#### 1.6.3 Homoscédasticité des résidus :
+
+------------------------------------------------------------------------
+
+**Visualisation graphique**
+
+------------------------------------------------------------------------
+
+```{r}
+# Graphique Scale-Location
+plot(model1, which = 1)
+```
+
+------------------------------------------------------------------------
+
+Les résidus ne présentent pas une tendance linéaire donc l’hypothèse
+d’homoscédasticité semble ne pas être respectée.
+
+------------------------------------------------------------------------
+
+**Tests Statistiques**
+
+------------------------------------------------------------------------
+
+**Test de Breusch-Pagan**
+
+------------------------------------------------------------------------
+
+Hypothèses :
+
+-   $H_0$ : La variance des résidus est constante (homoscédasticité)
+
+-   $H_1$ : La variance des résidus n"est pas constante
+    (hétéroscédasticité)
+
+------------------------------------------------------------------------
+
+```{r}
+bptest(model1)
+
+```
+
+Le test de Breusch-Pagan ne nous permet pas d'accepter l'hypothèse d'homoscédasticité.
+
+
+------------------------------------------------------------------------
+
+#### 1.6.4 Corrélation des résidus 
+
+------------------------------------------------------------------------
+
+**on graphique : Corrélogramme**
+
+```{r}
+library(forecast)
+autoplot(acf(residuals(model1)))
+
+```
+
+***
+
+Le test montre que les résidus ne présentent pas d’autocorrélation significative, car la plupart des barres d’autocorrélation sont dans les bandes bleues (intervalle de confiance). Cela indique que le modèle explique correctement la structure des données, sans laisser de dépendance temporelle non prise en compte.
+
+***
+
+### Tests statistiques
+
+------------------------------------------------------------------------
+
+**Test de Durbin-Watson**
+
+------------------------------------------------------------------------
+
+Hypothèses :
+
+-   $H_0$ : Les résidus ne sont pas autocorrélés
+
+-   $H_1$ : Les résidus sont autocorrélés
+
+------------------------------------------------------------------------
+
+```{r}
+dwtest(model1)
+
+```
+
+**La statistique DW** proche de 2 et la p-value (0.1506) indiquent
+qu'il n'y a pas d'autocorrélation significative entre les résidus.
+
+------------------------------------------------------------------------
+
+**Test de Ljung-Box**
+
+------------------------------------------------------------------------
+
+Hypothèse :
+
+-   $H_0$ : Les résidus ne sont pas autocorrélés
+
+-   $H_1$ : Les résidus sont autocorrélés
+
+------------------------------------------------------------------------
+
+```{r}
+Box.test(residuals(model1), type = "Ljung")
+
+```
+----------------------------------------------------------------------
+
+Au seuil de 5 %, les résidus **ne montrent pas d’autocorrélation significative**.  
+Cela signifie que l’hypothèse d’indépendance des résidus est **raisonnablement respectée**.
+
+------------------------------------------------------------------------
+
+**Test de Box-Pierce**
+
+------------------------------------------------------------------------
+
+Hypothèses :
+
+-   $H_O$ : Les résidus ne sont pas autocorrélés (ils sont indépendants)
+
+-   $H_1$: Les résidus sont autocorrélés (présence d'une dépendance dans
+    les erreurs).
+
+------------------------------------------------------------------------
+
+```{r}
+# Extraction des résidus
+residuals_modele <- residuals(model1)
+
+# Test de Box-Pierce
+box_pierce_test <- Box.test(residuals_modele, type = "Box-Pierce")
+print(paste("Box-Pierce p-value:", box_pierce_test$p.value))
+
+```
+
+P-value > 0.05, on conclut qu'il n'y a pas d'autocorrélation significative des résidus.
+
+------------------------------------------------------------------------
+
+#### 1.6.5 Normalité des résidus 
+
+------------------------------------------------------------------------
+
+**Visualisation graphique**
+
+------------------------------------------------------------------------
+
+```{r}
+library(lattice)
+#Vérification de la normalité des erreurs
+
+library(ggplot2)
+
+# Création d'un dataframe pour ggplot
+residuals_data <- data.frame(Residuals = rstudent(model1))
+
+# Histogramme amélioré avec densité et courbe normale
+ggplot(residuals_data, aes(x = Residuals)) +
+  geom_histogram(aes(y = ..density..), bins = 30, fill = "steelblue", color = "black", alpha = 0.7) +
+  geom_density(color = "red", size = 1) +
+  stat_function(fun = dnorm, args = list(mean = mean(residuals_data$Residuals, na.rm = TRUE), 
+                                         sd = sd(residuals_data$Residuals, na.rm = TRUE)),
+                color = "black", linetype = "dashed", size = 1) +
+  labs(title = "Histogramme des résidus studentisés",
+       x = "Résidus studentisés", y = "Densité") +
+  theme_minimal()
+
+ggplot(residuals_data, aes(sample = Residuals)) +
+  stat_qq(color = "steelblue") +
+  stat_qq_line(color = "red", linetype = "dashed") +
+  labs(title = "Diagramme Q-Q des résidus studentisés",
+       x = "Quantiles théoriques", y = "Quantiles des résidus") +
+  theme_minimal()
+
+```
+
+------------------------------------------------------------------------
+
+Interprétation :
+
+-   La courbe rouge (densité empirique) ne s’aligne pas avec la courbe
+     (distribution normale théorique), la normalité des résidus est remise 
+     en question.
+
+-   les points s’éloignent de la ligne rouge, les résidus ne suivent pas
+    une loi normale.
+
+**Tests statistiques**
+
+------------------------------------------------------------------------
+
+**Test de Shapiro-Wilk**
+
+------------------------------------------------------------------------
+
+Hypothèses :
+
+-   $H_0$ : Le modèle suit une loi normale
+
+-   $H_1$ : Le modèle ne suit pas une loi normale
+
+------------------------------------------------------------------------
+
+```{r}
+shapiro.test(epsilon)
+
+```
+
+------------------------------------------------------------------------
+
+P-value < 0,05 donc nous  concluons que **les résidus ne suivent pas une loi normale**.
+
+------------------------------------------------------------------------
+
+**Test de normalité de Lilliefors**
+
+------------------------------------------------------------------------
+
+Hypothèses :
+
+-   $H_0$: Le modèle suit une loi normale
+
+-   $H_1$ : Le modèle ne suit pas une loi normale.
+
+------------------------------------------------------------------------
+
+```{r}
+# Installation du package si nécessaire
+
+# Chargement du package
+library(nortest)
+
+lilliefors_test <- lillie.test(epsilon)
+print(paste("Lilliefors p-value:", lilliefors_test$p.value))
+```
+
+P-value < 0.05, donc les résidus ne suivent pas une loi normale.
+
+------------------------------------------------------------------------
+
+##### **Tableau récapitulatif de nos tests statistiques**
+
+------------------------------------------------------------------------
+
+```{r}
+# Charger les packages nécessaires
+library(knitr)
+library(kableExtra) 
+library(dplyr)
+
+# Création du dataframe avec regroupement des tests par hypothèse nulle
+resultats_tests <- data.frame(
+  Hypothese_Nulle = c(
+    "Le modèle est linéaire", "", "", 
+    "La moyenne des erreurs est nulle", 
+    "La variance des résidus est constante",  
+    "Les résidus ne sont pas autocorrélés", "", 
+    "Les résidus suivent une loi normale", ""
+  ),
+  Test = c(
+    "Test de Rainbow", "Test de Ramsey RESET", "Test de TSAY",
+    "Test de Student (t-test)", 
+    "Test de Breusch-Pagan", 
+    "Test de Durbin-Watson", "Test de Ljung-Box",
+    "Test de Shapiro-Wilk", "Test de Lilliefors"
+  ),
+  p_value = c(
+    0.01072, "< 2.2e-16", "2.977e-11",  
+    1,  
+    ' < 2.2e-16',   
+    0.1506, 0.3030,  
+    "< 2.2e-16", "4.20-166"
+  ),
+  Conclusion = c(
+    "Rejetéé", "Rejetée", "Rejetée",  
+    "Vérifiée",  
+    "Rejetée",  
+    "Vérifiée", "Vérifiée",  
+    "Rejetée", "Rejetée"
+  )
+)
+
+# Appliquer la mise en couleur sur la colonne "Conclusion"
+resultats_tests <- resultats_tests %>%
+  mutate(Conclusion = ifelse(Conclusion == "Vérifiée", 
+                             cell_spec(Conclusion, color = "green", bold = TRUE), 
+                             cell_spec(Conclusion, color = "red", bold = TRUE)))
+
+# Affichage du tableau avec mise en forme améliorée
+kable(resultats_tests, format = "html", escape = FALSE) %>%
+  kable_styling("striped", full_width = FALSE, bootstrap_options = c("condensed", "responsive")) %>%
+  column_spec(1, bold = TRUE, width = "30%") %>%
+  column_spec(2, width = "30%") %>%
+  column_spec(3, width = "15%") %>%
+  column_spec(4, width = "15%")
+
+
+```
+
+
+
+
+### 1.7 - Détection des individus extrêmes (outliers) 
+
+
+Nous vérifions la présence des outliers dans notre modèle. Afin de les identifier, nous allons utiliser différentes approches.
+
+
+#### 1.7.1 Détection des outliers via l'effet levier (Hat Values) 
+
+
+L'effet levier est mesuré par la matrice Hat :
+$$ H = X (X^T X)^{-1} X^T$$ où $$H$$ représente la diagonale de la
+matrice Hat.
+
+Une observation est considérée comme influente si :
+$$ H > \frac{2p}{n} $$
+
+où :
+-   $p$ est le nombre de paramètres du modèle (y compris l'intercept),
+-   $n$ est la taille de l’échantillon.
+
+```{r}
+library(olsrr)
+# Graphique des valeurs de levier
+ols_plot_resid_lev(model1)
+
+# Graphique des résidus studentisés vs valeurs ajustées
+ols_plot_resid_stud_fit(model1)
+
+
+```
+
+```{r}
+# Calcul des valeurs de leverage
+hat_values <- hatvalues(model1)
+
+# Définition du seuil (2p/n)
+p <- length(coef(model1))  # Nombre de coefficients (variables explicatives + intercept)
+n <- nrow(sym_quanti)  # Nombre d'observations
+seuil_levier <- 4 * p / n  
+
+# Identifier les outliers
+outliers_hat <- which(hat_values > seuil_levier)
+print(outliers_hat)
+```
+
+
+```{r}
+summary(hat_values)  # Vérifier les min, max et médiane des valeurs de levier
+print(seuil_levier)
+
+```
+***
+
+Le seuil est trop bas pour detecter les valeurs extrèmes qu'on visualise sur le graphique donc on l'augmente. L'effet levier ne détecte pas d'outliers.
+
+***
+
+#### 1.7.2 Détection via les résidus studentisés 
+
+***
+
+Les résidus studentisés externes permettent de détecter les valeurs
+aberrantes : $$ t_i = \frac{e_{(i)}}{s_{(i)} \sqrt{1 - h_i}} $$
+où :
+
+-   $e_i$ est le résidu de l'observation $i$ 
+_   $h_i$ est la valeur de levier, $s_{(i)}$ est l’écart-type des résidus calculé sans l’observation $i$.
+
+Une observation est suspecte si $|t_i| > 3$.
+
+------------------------------------------------------------------------
+
+```{r}
+# Résidus studentisés
+ols_plot_resid_stud(model1)
+
+# Résidus standardisés
+ols_plot_resid_stand(model1)
+
+```
+
+```{r}
+library(MASS)
+
+residus_student <- studres(model1)  # Calcul des résidus studentisés
+
+# Identifier les outliers avec |résidu studentisé| > 2 ou > 3
+outliers_residus  <- which(abs(residus_student) > 2)
+outliers_residus_severes<- which(abs(residus_student) > 3)
+
+# Afficher le nombre d'outliers détectés
+nombre_outliers <- length(outliers_residus) 
+nombre_outliers_severes <- length(outliers_residus_severes)
+
+cat("Nombre d'outliers avec |résidu studentisé| > 2 :", nombre_outliers, "\n")
+cat("Nombre d'outliers sévères avec |résidu studentisé| > 3 :", nombre_outliers_severes, "\n")
+
+# Visualisation
+#plot(residus_student, type = "h", main = "Résidus Studentisés", 
+     #xlab = "Observations", ylab = "Résidus Studentisés")
+#abline(h = c(-2, 2), col = "orange", lty = 2)
+#abline(h = c(-3, 3), col = "red", lty = 2)
+
+```
+
+
+
+-   Les lignes rouges (±3) et orange (±2) indiquent des seuils au-delà desquels les
+résidus sont considérés comme significatifs. Les valeurs entre ces lignes indiquent des observations potentiellement aberrantes ce que nous contatons en observant le graphique.
+
+-   Certaines observations autour des indices 91, 456, 745, 821, etc., semblent se démarquer, ce qui signifie qu'elles pourraient être influentes ou mal modélisées.
+
+
+#### 1.7.3 Détection des outliers via la distance de Cook 
+
+
+La distance de Cook mesure l'influence d'une observation sur l'ensemble
+du modèle :
+
+$$ D_i = \frac{\sum_{j=1}^{n} (\hat{Y}_j - \hat{Y}_{j(i)})^2}{p \cdot \hat{\sigma}^2} $$
+Une règle générale pour identifier les observations influentes
+:$$ D_i > \frac{4}{n} $$ où :
+
+-   $D_i$ est la distance de Cook pour l’observation $i$,
+-   $\hat{Y}_j$ est la prédiction avec tous les points,
+-   $\hat{Y}_{j(i)}$ est la prédiction sans l'observation $i$,
+-   $p$ est le nombre de paramètres du modèle,
+-   $\hat{\sigma}^2$ est la variance des résidus.
+
+------------------------------------------------------------------------
+
+```{r}
+# Distance de Cook pour identifier les points influents
+ols_plot_cooksd_bar(model1)
+
+
+```
+
+```{r}
+#METHODE 2
+# Calcul de la distance de Cook
+cooks_distances <- cooks.distance(model1)
+
+# Seuil standard (valeur critique 4/n)
+seuil_cook <- 4/n
+outliers_cook <- which(cooks_distances > seuil_cook)
+
+print(outliers_cook)
+
+# Visualisation
+#plot(cooks_distances, type = "h", main = "Distance de Cook", 
+    # xlab = "Observations", ylab = "Cook’s Distance")
+#abline(h = seuil_cook, col = "red", lty = 2)  # Seuil critique
+
+```
+
+------------------------------------------------------------------------
+
+Les points qui dépassent la ligne rouge ont un effet disproportionné sur
+la régression. Ces points doivent être examinés individuellement pour
+voir s'ils sont des valeurs aberrantes ou des observations influentes.
+
+
+***
+#### 1.7.4 Analyse des DFBETAS (Influence sur les coefficients) 
+
+DFBETAS (Difference in Betas) mesure l’impact d’une observation sur un
+coefficient de régression spécifique.
+$$ DFBETAS_{ij} = \frac{\beta_j - \beta_{j(i)}}{s_{(i)} \sqrt{C_{jj}}} $$
+où :
+
+-   $\beta_j$ est le coefficient estimé avec tous les points,
+-   $\beta_{j(i)}$ est le coefficient estimé sans l’observation $i$,
+-   $C_{jj}$ est l’élément diagonal de la matrice $(X^T X)^{-1}$. Une
+    valeur $|DFBETAS_{ij}| > 2 / \sqrt{n}$ indique une forte influence.
+
+
+
+```{r}
+# Charger la bibliothèque ggplot2
+library(ggplot2)
+# Calcul des DFBETAS
+dfbetas_values <- dfbetas(model1)
+
+# Nombre d'observations
+n <- nrow(sym_quanti)
+
+# Seuil critique pour DFBETAS
+dfbetas_threshold <- 2 / sqrt(n) 
+
+# Identifier les observations influentes
+influential_dfbetas <- which(apply(abs(dfbetas_values), 1, max) > dfbetas_threshold)
+
+# Afficher le nombre d'observations influentes
+nombre_influentes <- length(influential_dfbetas)
+
+cat("Nombre d'observations influentes selon DFBETAS :", nombre_influentes, "\n")
+
+
+# Affichage des observations influentes
+#
+# Visualisation des DFBETAS
+#dfbetas_df <- data.frame(Observation = 1:n, DFBETAS = apply(dfbetas_values, 1, max))
+#ggplot(dfbetas_df, aes(x = Observation, y = DFBETAS)) +
+  #geom_point(alpha = 0.5) +
+  #geom_hline(yintercept = dfbetas_threshold, col = "red", linetype = "dashed") +
+  #theme_minimal()
+
+```
+
+------------------------------------------------------------------------
+
+-   De nombreuses observations influencent au moins un coefficient du
+    modèle.
+
+-   La liste des indices influents est assez longue, ce qui signifie
+    qu'il y a plusieurs valeurs qui affectent les estimations des
+    coefficients.
+
+-   Les points les plus élevés dans le graphique doivent être examinés,
+    car ils ont un effet important sur les paramètres du modèle.
+
+
+
+#### 1.7.5 Analyse des DFFITS (Influence sur les prédictions) 
+
+DFFITS (Difference in Fits) indique si une observation change fortement
+la valeur prédite du modèle.
+
+$$ DFFITS_i = \frac{\hat{Y}_i - \hat{Y}_{i(i)}}{s_{(i)} \sqrt{h_i}} $$
+où :
+
+-   $\hat{Y}_i$ est la prédiction avec tous les points,
+-   $\hat{Y}_{i(i)}$ est la prédiction sans l’observation $i$.
+
+Une observation est considérée comme influente si :
+$$ |DFFITS_i| > 2 \frac{\sqrt{p}}{\sqrt{n}} $$
+
+```{r}
+# Graphique des DFFITS
+ols_plot_dffits(model1)
+
+```
+
+```{r}
+# Calcul des DFFITS
+dffits_values <- dffits(model1)
+
+# Nombre de prédicteurs dans le modèle (hors intercept)
+p <- length(coef(model1)) - 1  
+
+# Nombre d'observations
+n <- nrow(sym_quanti)
+
+# Seuil critique pour DFFITS
+dffits_threshold <- 2 * sqrt(p / n)
+
+# Identifier les observations influentes selon DFFITS
+influential_dffits <- which(abs(dffits_values) > dffits_threshold)
+
+# Afficher le nombre d'observations influentes
+nombre_influentes_dffits <- length(influential_dffits)
+
+cat("Nombre d'observations influentes selon DFFITS :", nombre_influentes_dffits, "\n")
+
+# Affichage des observations influentes
+#cat("Observations influentes selon DFFITS : ", influential_dffits, "\n")
+
+# Visualisation des DFFITS
+#dffits_df <- data.frame(Observation = 1:n, DFFITS = dffits_values)
+#ggplot(dffits_df, aes(x = Observation, y = DFFITS)) +
+  #geom_point(alpha = 0.5) +
+  #geom_hline(yintercept = c(-dffits_threshold, dffits_threshold), col = "red", linetype = "dashed") +
+  #theme_minimal()
+
+
+```
+
+
+-   Les observations influentes selon DFFITS sont celles qui changent
+    significativement la valeur prédite.
+
+-   Certaines observations apparaissent dans les deux listes (DFBETAS &
+    DFFITS), ce qui indique qu’elles affectent à la fois les
+    coefficients et les prédictions.
+
+-   Les points au-dessus de la ligne rouge dans le graphique DFFITS sont
+    ceux qui ont le plus grand impact sur les valeurs prédites.
+
+
+**Resumé des influences**
+
+***
+
+```{r}
+#  Charger les bibliothèques nécessaires
+library(MASS)  # Pour les résidus studentisés
+library(ggplot2)  # Pour les visualisations
+
+#  Calcul des Résidus Studentisés
+residus_student <- studres(model1)  
+
+# Détection des Outliers
+outliers_residus <- which(abs(residus_student) > 2)
+outliers_residus_severes <- which(abs(residus_student) > 3)
+
+# Nombre d'outliers détectés
+nombre_outliers <- length(outliers_residus)
+nombre_outliers_severes <- length(outliers_residus_severes)
+
+#  Calcul des DFBETAS
+dfbetas_values <- dfbetas(model1)
+n <- nrow(sym_quanti)  # Nombre d'observations
+dfbetas_threshold <- 2 / sqrt(n)  # Seuil critique
+influential_dfbetas <- which(apply(abs(dfbetas_values), 1, max) > dfbetas_threshold)
+nombre_influentes_dfbetas <- length(influential_dfbetas)
+
+# Calcul des DFFITS
+dffits_values <- dffits(model1)
+p <- length(coef(model1)) - 1  # Nombre de prédicteurs
+dffits_threshold <- 2 * sqrt(p / n)  # Seuil critique
+influential_dffits <- which(abs(dffits_values) > dffits_threshold)
+nombre_influentes_dffits <- length(influential_dffits)
+
+# Tableau Récapitulatif
+recapitulatif <- data.frame(
+  Critère = c("Outliers (Résidus Studentisés > 2)", 
+              "Outliers Sévères (Résidus Studentisés > 3)", 
+              "Observations Influentes (DFBETAS)", 
+              "Observations Influentes (DFFITS)"),
+  Nombre = c(nombre_outliers, nombre_outliers_severes, 
+             nombre_influentes_dfbetas, nombre_influentes_dffits)
+)
+
+# Affichage du tableau formaté
+library(kableExtra)
+recapitulatif %>%
+  kbl() %>%
+  kable_paper(full_width = F)
+
+
+
+```
+
+
+
+***
+
+### 1.8 Suppression des valeurs extrêmes et création du nouveau modèle 
+
+Suite à la visualisation de nos valeurs extrême, on peut créer un
+nouveau modèle en les supprimants afin de voir si il est possible de
+faire une meilleure étude de nos données.
+
+***
+
+```{r}
+# Suppression des outliers identifiés
+#  Supprimer les observations influentes détectées par DFBETAS
+base_sans_dfbetas <- sym_quanti[-influential_dfbetas, ]
+
+# Ajuster un nouveau modèle sans ces observations
+modele_sans_dfbetas <- lm(log_prix ~ ., data = base_sans_dfbetas)
+
+```
+
+***
+
+**Modèle Initial**
+
+```{r}
+summary(model1)
+
+```
+***
+
+**Modèle sans Outliers (DFBETAS)** 
+
+```{r}
+summary(modele_sans_dfbetas)
+
+```
+
+### **Comparaison des modèles (avec et sans outlier)**
+
+```{r}
+# Extraction des coefficients des deux modèles
+coef_initial <- summary(model1)$coefficients
+coef_sans_dfbetas <- summary(modele_sans_dfbetas)$coefficients
+
+# Création d'un tableau comparatif des coefficients
+comparaison_coefficients <- data.frame(
+  Variable = rownames(coef_initial),
+  "Estimate (avec outliers)" = coef_initial[, 1],
+  "Std. Error (avec outliers)" = coef_initial[, 2],
+  "Estimate (Sans outliers)" = coef_sans_dfbetas[, 1],
+  "Std. Error (Sans outliers)" = coef_sans_dfbetas[, 2]
+)
+
+#  Affichage du tableau comparatif des coefficients
+comparaison_coefficients %>%
+  kbl() %>%
+  kable_paper(full_width = F)
+
+```
+
+
+------------------------------------------------------------------------
+
+La suppression des outliers a permi une amélioration de 8% du modèle initial . Les variables non significatives pourraient être retirées pour optimiser le modèle. 
+
+
+***
+
+### 1.9 Analyse de la multicolinéarité 
+
+***
+#### 1.9.1  Variance Inflation Factor (VIF) 
+
+Le Variance Inflation Factor (VIF) mesure dans quelle mesure la variance d’un coefficient de régression est augmentée à cause de la colinéarité avec les autres variables explicatives. Une valeur élevée indique une forte multicolinéarité.
+$$
+\text{VIF}_j = \frac{1}{1 - R_j^2}
+$$
+
+où $R_j^2$  est le coefficient de détermination obtenu en régressant la variable $X_j$ sur toutes les autres variables explicatives du modèle.
+
+***
+```{r}
+library(car)
+
+# Calcul du VIF
+vif_valeur <- vif(model1)
+
+# Affichage des résultats
+print(vif_valeur)
+
+```
+***
+
+Les valeurs de VIF sont globalement inférieures à 3, ce qui indique une absence de multicolinéarité problématique dans le modèle. Les variables "Nombre de pièces principales" et "Code type local" présentent une colinéarité modérée mais restent en dessous des seuils critiques (VIF < 5). Le modèle peut donc être estimé sans risque majeur d’instabilité des coefficients.
+
+***
+
+#### 19.2 Tolérance 
+
+***
+La tolérance est l’inverse du VIF et représente la proportion de variance d’une variable qui n’est pas expliquée par les autres variables du modèle.
+
+$$
+\text{Tolérance}_j = \frac{1}{\text{VIF}_j} = 1 - R_j^2
+$$
+
+
+***
+```{r}
+# Calcul de la tolérance
+tolerance <- 1 / vif_valeur
+
+# Affichage des résultats
+print(tolerance)
+```
+***
+Toutes les valeurs de tolérance sont proches de 1 saut Code.type.local et Nombre.pieces.principales  , indiquant que certaines variables ont une faible corrélation avec les autres. Cela signifie que le modèle est bien spécifié et que les coefficients de régression sont fiables et interprétables.
+
+____________________________________
+
+
+## 2 - Modèle Linéaire Généralisé (GLM) : 
+
+
+### 2.1 La théorie 
+
+**Présentation du GLM**
+
+Le **Modèle Linéaire Généralisé** (*Generalized Linear Model*, GLM) étend le modèle
+linéaire classique à des distributions non gaussiennes en utilisant la méthode des
+**moindres carrés itérativement repondérés** (IRLS) pour l'estimation et le test des
+hypothèses.
+
+#### 2.1.1 Matrice 
+
+La matrice $X$ rassemble les variables explicatives pour $n$ observations et
+$p$ prédicteurs :
+
+$$X = \begin{pmatrix}
+  1 & x_{1,1} & \cdots & x_{1,p} \\
+  \vdots & \ddots & & \vdots \\
+  1 & x_{n,1} & \cdots & x_{n,p}
+\end{pmatrix}$$
+
+#### 2.1.2 Famille exponentielle :
+
+La densité conditionnelle de $Y \mid X = x_i$ appartient à la **famille exponentielle** :
+
+$$f_{Y \mid X=x_i}(y_i) = \exp\!\left(\frac{y_i\,\theta_i - b(\theta_i)}{a_i(\phi)} + c(y_i, \phi)\right)$$
+
+où :
+
+- $\theta_i$ : paramètre naturel d'intérêt,
+- $\phi$ : paramètre de nuisance (supposé connu), avec $a_i(\phi) = \phi$,
+- $a,\, b,\, c$ : fonctions connues caractérisant la famille.
+
+#### 2.1.3 Espérance et variance conditionnelles
+
+$$\mu_i = \mathbb{E}(Y \mid X = x_i) = g^{-1}(\eta_i), \qquad \eta_i = X_i^\top \beta$$
+
+$$\text{Var}(Y \mid X = x_i) = b''(g(\mu_i))\,\phi$$
+
+#### 2.1.4 Écriture du modèle
+
+$$y_i = g^{-1}(X_i^\top \beta) + \varepsilon_i$$
+
+La **fonction de lien** $g$ connecte l'espérance conditionnelle $\mu_i$ au prédicteur
+linéaire $\eta_i = X_i^\top \beta$.
+
+---
+
+### 2.2 Types de modèles GLM 
+
+Le choix de la famille et du lien dépend de la nature de la variable réponse :
+
+| Variable réponse | Famille | Lien canonique | Lien alternatif |
+|:-----------------|:--------|:---------------|:----------------|
+| Continue (symétrique) | Gaussienne | Identité | log |
+| Continue (asymétrique $>0$) | Gamma | Inverse | log |
+| Continue (0 ; 1) | Beta | Logit | — |
+| Binaire / proportions | Binomiale | Logit | Probit, complementary log-log |
+| Comptage | Poisson | Log | — |
+| Comptage (surdispersion) | Binomiale négative | Log | — |
+
+**Conditions d'application communes**
+
+Pour tous ces modèles, il faut veiller à :
+
+1. **Indépendance** des observations (et des erreurs),
+2. **Absence de valeurs aberrantes** influentes,
+3. **Absence de multicolinéarité** excessive entre les prédicteurs.
+
+---
+
+### 2.3 Algorithme IRLS
+
+Le GLM est estimé par **vraisemblance maximale** via l'algorithme des moindres
+carrés itérativement repondérés (IRLS) :
+
+**Initialisation :** $\mu^{(0)} = \bar{y}$, $\eta^{(0)} = g(\mu^{(0)})$
+
+**À chaque itération $t$ :**
+
+1. **Variable de travail ajustée :**
+$$z_i^{(t)} = \eta_i^{(t)} + (y_i - \mu_i^{(t)})\,g'(\mu_i^{(t)})$$
+
+2. **Matrice de poids :**
+$$W_{ii}^{(t)} = \frac{1}{V(\mu_i^{(t)})\,[g'(\mu_i^{(t)})]^2}$$
+
+3. **MCO pondérés :**
+$$\hat{\beta}^{(t+1)} = \left(X^\top W^{(t)} X\right)^{-1} X^\top W^{(t)} z^{(t)}$$
+
+4. **Mise à jour :** $\eta^{(t+1)} = X\hat{\beta}^{(t+1)}$, $\mu^{(t+1)} = g^{-1}(\eta^{(t+1)})$
+
+**Convergence :** $\max|\hat\beta^{(t+1)} - \hat\beta^{(t)}| < \varepsilon$
+
+> **Remarque :** Pour le modèle gaussien avec lien identité, $g'(\mu)=1$ et $V(\mu)=1$,
+> donc $W = I$ et l'algorithme converge en **une seule itération**, ce qui redonne
+> exactement les MCO ordinaires.
+
+---
+
+### 2.4 Déviance et qualité d'ajustement 
+
+La **déviance** généralise la somme des carrés résiduels :
+
+$$D = 2\,[\ell(\hat\mu_{\text{sat}}) - \ell(\hat\mu)]$$
+
+où $\ell(\hat\mu_{\text{sat}})$ est la log-vraisemblance du modèle saturé.
+
+L'**AIC** (Critère d'Akaike) permet de comparer des modèles :
+
+$$\text{AIC} = -2\ell(\hat\beta) + 2p$$
+
+---
+
+
+### 2.5 Application 
+
+#### 2.5.1 Application du GLM 
+
+On peut faire le glm :
+
+##### Modèle gaussien avec link = log
+
+### Modèle 2 : GLM gaussien avec lien logarithmique
+
+Le modèle généralisé utilisé est :
+
+$$
+g(\mu_i) = \log(\mu_i)
+$$
+
+avec :
+
+$$
+Y_i \sim \mathcal{N}(\mu_i, \sigma^2)
+$$
+
+La relation entre la moyenne et les variables explicatives est :
+
+$$
+\log(\mathbb{E}[Prix_i]) = 
+\beta_0 
++ \beta_1 \cdot \text{Surface.reelle.bati}_i
++ \beta_2 \cdot \text{Nombre.pieces.principales}_i
++ \beta_3 \cdot \text{Surface.terrain}_i
++ \beta_4 \cdot \text{Code.postal}_i
++ \beta_5 \cdot \text{Nombre.de.lots}_i
++ \beta_6 \cdot \text{Surface.Carrez.du.1er.lot}_i
++ \beta_7 \cdot \text{Code.type.local}_i
+$$
+
+
+
+```{r}
+# Construction de log_prix si non présente
+sym_quanti$log_prix <- log1p(quanti$Valeur.fonciere)
+modele_gaussien_log <- glm(log_prix ~ .,
+           family = gaussian(link = "log"),
+           data   = sym_quanti)
+summary(modele_gaussien_log)
+
+```
+
+
+#### Modèle Gamma avec lien inverse
+
+
+```{r}
+modele_gamma_inverse <- glm(log_prix ~ ., data = sym_quanti, family = Gamma(link = "inverse"))
+summary(modele_gamma_inverse)
+
+```
+
+#### Modèle Gamma avec lien logarithmique
+
+
+```{r}
+modele_gamma_log <- glm(log_prix ~ ., data = sym_quanti, family = Gamma(link = "log"))
+summary(modele_gamma_log)
+
+```
+
+**Comparaison des modèles **
+
+
+```{r}
+# Charger les bibliothèques nécessaires
+library(Metrics)  # Pour calculer le RMSE
+# install.packages("Metrics")
+library(knitr)    # Pour formater le tableau
+library(kableExtra) # Pour un affichage amélioré du tableau
+
+# Liste des modèles à comparer
+glm_models = list(model1, modele_gamma_inverse, modele_gaussien_log, modele_gamma_log)
+
+# Calcul des métriques pour chaque modèle
+aic_values = c(AIC(model1), AIC(modele_gamma_inverse), AIC(modele_gaussien_log),AIC(modele_gamma_log))
+
+bic_values = c(BIC(model1), BIC(modele_gamma_inverse), BIC(modele_gaussien_log), BIC(modele_gamma_log))
+
+rmse_values = c(rmse(sym_quanti$log_prix, predict(model1)), 
+                rmse(sym_quanti$log_prix, predict(modele_gamma_inverse, type = "response")),   rmse(sym_quanti$log_prix, predict(modele_gaussien_log, type = "response")),
+                rmse(sym_quanti$log_prix, predict(modele_gamma_log, type = "response"))
+           )
+
+# Création du tableau récapitulatif
+tableau = data.frame(AIC = aic_values, BIC = bic_values, RMSE = rmse_values)
+
+# Attribution des noms de lignes
+rownames(tableau) = c("LM", "GLM (Gamma - Inverse)","GLM (Gaussien - log)", "GLM (Gamma - Log)")
+
+# Affichage du tableau formaté
+tableau %>%
+  kbl() %>%
+  kable_paper(full_width = F)
+
+
+
+```
+
+```{r}
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+
+df <- data.frame(
+  Model = c("LM", "GLM (Gamma - Inverse)", "GLM (Gaussien - log)", "GLM (Gamma - Log)"),
+  AIC = c(10763.86, 11656.58,10754.38, 11640.80),
+  BIC = c(10816.71, 11709.43,10807.23, 11693.66),
+  RMSE = c(1.862713, 1.882803,1.870275, 1.872980)
+)
+
+df_long <- df %>%
+  pivot_longer(cols = c(AIC, BIC, RMSE),
+               names_to = "Metric",
+               values_to = "Value")
+
+ggplot(df_long, aes(x = Model, y = Value, fill = Metric)) +
+  geom_col() +
+  facet_wrap(~ Metric, scales = "free_y") +
+  theme_minimal(base_size = 13) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Comparaison des modèles selon AIC, BIC et RMSE",
+       x = "Modèle",
+       y = "Valeur")
+
+```
+
+Le GLM Gaussien avec lien log a les meilleurs scores en terme de AIC et BIC, ce qui suggère un meilleur compromis entre qualité d’ajustement et complexité du modèle tandisque la régression linéaire multiple reste légèrement meilleure en termes d’erreur quadratique moyenne.
+
+***
+
+**Test de Vuong**
+
+***
+
+On va utiliser le test de vuong sur les deux modèles ayant l'AIC et le BIC le plus faible pour confirmer le choix de notre modèle final.
+
+```{r}
+
+library(nonnest2)
+#install.packages("nonnest2")
+vuong_test <- vuongtest(model1, modele_gaussien_log)
+
+# Affichage des résultats
+print(vuong_test)
+
+
+```
+Les modèles sont statistiquement différents en termes de structure de variance.
+
+En termes de qualité d’ajustement globale, les deux modèles sont équivalents pour la population cible.
+
+Le GLM avec lien log peut être préféré si les résidus du modèle linéaire montrent une hétéroscédasticité ou une asymétrie
+
+
+
+#### 2.5.2 GLM à la main — algorithme IRLS 
+
+#### Implémentation
+
+
+```{r glm_main_fonction}
+glm_main <- function(formula, sym_quanti,
+                     family   = "gaussian",
+                     link     = "identity",
+                     tol      = 1e-8,
+                     max_iter = 100,
+                     verbose  = TRUE) {
+
+  # ── 1. Préparation des matrices ──────────────────────────────────────────
+  mf <- model.frame(formula, data=sym_quanti)
+  y  <- model.response(mf)
+  X  <- model.matrix(formula, data=sym_quanti)
+  n  <- nrow(X)
+  p  <- ncol(X)
+
+  # ── 2. Fonctions de lien et de variance ──────────────────────────────────
+  if (family == "gaussian" && link == "log") {
+    g       <- function(mu)  mu
+    g_inv   <- function(eta) eta
+    g_deriv <- function(mu)  rep(1, length(mu))
+    V_mu    <- function(mu)  rep(1, length(mu))
+
+  } else if (family == "binomial" && link == "logit") {
+    g       <- function(mu)  log(mu / (1 - mu))
+    g_inv   <- function(eta) 1 / (1 + exp(-eta))
+    g_deriv <- function(mu)  1 / (mu * (1 - mu))
+    V_mu    <- function(mu)  mu * (1 - mu)
+
+  } else if (family == "poisson" && link == "log") {
+    g       <- function(mu)  log(mu)
+    g_inv   <- function(eta) exp(eta)
+    g_deriv <- function(mu)  1 / mu
+    V_mu    <- function(mu)  mu
+
+  } else if (family == "Gamma" && link == "log") {
+    g       <- function(mu)  log(mu)
+    g_inv   <- function(eta) exp(eta)
+    g_deriv <- function(mu)  1 / mu
+    V_mu    <- function(mu)  mu^2
+
+  } else {
+    stop("Combinaison family/link non supportée.")
+  }
+
+  # ── 3. Initialisation ────────────────────────────────────────────────────
+  mu <- rep(mean(y), n)
+  if (family == "binomial") mu <- pmax(pmin(mu, 0.99), 0.01)
+  if (family %in% c("poisson", "Gamma")) mu <- pmax(mu, 1e-6)
+
+  eta  <- g(mu)
+  beta <- rep(0, p)
+  convergence_history <- numeric(max_iter)
+
+  # ── 4. Boucle IRLS ───────────────────────────────────────────────────────
+  iter_final <- max_iter
+  for (iter in seq_len(max_iter)) {
+
+    beta_old <- beta
+
+    # 4a. Variable de travail z_i = η_i + (y_i − μ_i) * g'(μ_i)
+    z <- eta + (y - mu) * g_deriv(mu)
+
+    # 4b. Poids W_ii = 1 / [V(μ_i) * (g'(μ_i))^2]
+    w <- 1 / (V_mu(mu) * g_deriv(mu)^2)
+    W <- diag(w)
+
+    # 4c. β = (XᵀWX)⁻¹ XᵀWz  (MCO pondérés)
+    XtW  <- t(X) %*% W
+    XtWX <- XtW %*% X
+    XtWz <- XtW %*% z
+    beta <- solve(XtWX, XtWz)
+
+    # 4d. Mise à jour η et μ
+    eta <- as.vector(X %*% beta)
+    mu  <- g_inv(eta)
+    if (family == "binomial") mu <- pmax(pmin(mu, 0.9999), 1e-4)
+    if (family %in% c("poisson", "Gamma")) mu <- pmax(mu, 1e-6)
+
+    # 4e. Convergence
+    delta <- max(abs(beta - beta_old))
+    convergence_history[iter] <- delta
+
+    if (verbose) {
+      cat(sprintf("Itération %3d | max|Δβ| = %.3e\n", iter, delta))
+    }
+
+    if (delta < tol) {
+      iter_final <- iter
+      if (verbose) cat(sprintf("\n✓ Convergé en %d itérations.\n", iter))
+      break
+    }
+  }
+
+  # ── 5. Statistiques finales ───────────────────────────────────────────────
+  residuals <- y - mu
+
+  # Paramètre de dispersion φ estimé
+  phi   <- sum(residuals^2) / (n - p)
+
+  # Var(β̂) = φ * (XᵀWX)⁻¹
+  Vbeta <- phi * solve(XtWX)
+  se    <- sqrt(diag(Vbeta))
+  t_val <- as.vector(beta) / se
+  p_val <- 2 * pt(abs(t_val), df = n - p, lower.tail = FALSE)
+
+  # Déviances
+  mu_null    <- rep(mean(y), n)
+  dev_resid  <- sum(residuals^2)
+  dev_null   <- sum((y - mu_null)^2)
+
+  # ── 6. Affichage du résumé ────────────────────────────────────────────────
+  if (verbose) {
+    cat("\n───────────────────────────────────────────────────────\n")
+    cat(sprintf("GLM à la main | Family: %s | Link: %s\n", family, link))
+    cat("───────────────────────────────────────────────────────\n")
+    cat(sprintf("%-22s %9s %9s %9s %11s\n",
+                "Terme", "Estimate", "Std.Err", "t value", "Pr(>|t|)"))
+    cat(rep("-", 65), "\n", sep = "")
+    for (i in seq_len(p)) {
+      stars <- ifelse(p_val[i] < 0.001, "***",
+               ifelse(p_val[i] < 0.01,  "** ",
+               ifelse(p_val[i] < 0.05,  "*  ", "   ")))
+      cat(sprintf("%-22s %9.4f %9.4f %9.3f %11.4f %s\n",
+                  colnames(X)[i],
+                  beta[i], se[i], t_val[i], p_val[i], stars))
+    }
+    cat(rep("-", 65), "\n", sep = "")
+    cat(sprintf("Déviance résiduelle : %.4f  (ddl: %d)\n", dev_resid, n - p))
+    cat(sprintf("Déviance nulle      : %.4f  (ddl: %d)\n", dev_null,  n - 1))
+    cat(sprintf("AIC                 : %.4f\n", dev_resid / phi + 2 * p))
+    cat("Signif. codes: 0 '***' 0.001 '**' 0.01 '*' 0.05 ' '\n")
+  }
+
+  invisible(list(
+    coefficients      = setNames(as.vector(beta), colnames(X)),
+    se                = se,
+    t_values          = t_val,
+    p_values          = p_val,
+    phi               = phi,
+    residuals         = residuals,
+    fitted            = mu,
+    deviance          = dev_resid,
+    null_deviance     = dev_null,
+    cov_beta          = Vbeta,
+    iterations        = iter_final,
+    convergence_delta = convergence_history[seq_len(iter_final)]
+  ))
+}
+```
+
+
+### Exécution et résultats
+
+##### Modèle gaussien avec link = log
+
+```{r}
+
+ref=glm_main(log_prix ~ ., sym_quanti, family = "gaussian", link = "log")
+
+```
+##### Modèle gamma avec link = log
+
+```{r glm_main_execution}
+res <- glm_main(
+  formula = log_prix ~ .,
+  sym_quanti,
+  family  = "Gamma",
+  link    = "log"
+)
+```
+
+
+```{r}
+cat("=== Différence maximale entre les coefficients ===\n")
+delta_coef <- max(abs(modele_gaussien_log$coefficients - coef(ref)))
+cat(sprintf("max |β_main - β_glm| = %.2e\n\n", delta_coef))
+
+# Tableau comparatif
+comp <- data.frame(
+  Terme    = names(modele_gaussien_log$coefficients),
+  GLM_main = round(modele_gaussien_log$coefficients, 6),
+  GLM_natif = round(coef(ref), 6),
+  Diff     = round(modele_gaussien_log$coefficients - coef(ref), 8)
+)
+print(comp, row.names = FALSE)
+```
+
+
+### 2.6 Diagnostics du modèle :
+
+```{r diagnostics, fig.cap="Diagnostics du modèle gaussien"}
+par(mfrow = c(2, 2))
+plot(modele_gaussien_log)
+par(mfrow = c(1, 1))
+```
+
+
+
+```{r residus_plot, fig.cap="Résidus vs valeurs ajustées (GLM à la main)"}
+df_diag <- data.frame(
+  fitted    = modele_gaussien_log$fitted,
+  residuals = modele_gaussien_log$residuals
+)
+
+ggplot(df_diag, aes(x = fitted, y = residuals)) +
+  geom_point(alpha = 0.4, colour = "#4C72B0") +
+  geom_hline(yintercept = 0, colour = "#C44E52", linetype = "dashed") +
+  geom_smooth(se = FALSE, colour = "#55A868", linewidth = 0.8) +
+  labs(title = "Résidus vs Valeurs ajustées",
+       x = "Valeurs ajustées (μ̂)", y = "Résidus (y − μ̂)") +
+  theme_minimal()
+```
+
+
+### 2.7 Etude des influences des individus 
+
+Nous avons étudié l'influence des individus dans la partie 9, c'est pour cela que nous avons l'absence de valeur aberrante. 
+
+### 2.8 Problèmes de multicolinéarité 
+
+La multicolinéarité correspond à une situation où les données contiennent des variables prédictives fortement corrélées. 
+
+```{r multico}
+car::vif(modele_gaussien_log)
+```
+
+En règle générale, une valeur supérieure à 5 ou 10 indique une quantité problématique de colinéarité. Dans notre cas, on peut remarquer que nos variables sont très peu corrélées (moins de 2).
+
+Nous allons maintenant étudier 5 regressions différentes : PCR, PLS, Ridge, Lasso, Elastic Net. La régression PCR (comme la régression Ridge et la régression Lasso), est une méthode que nous pouvons utiliser pour ajuster un modèle de régression lorsque la multicolinéarité est présente dans nos données.
+En résumé, la régression des moindres carrés tente de trouver des estimations de coefficients qui minimisent la somme des résidus au carré (RSS) :
+
+$$RSS = \sum (y_{i} - \hat y_{i})^²$$
+
+avec $y_{i}$ la valeur de réponse réellement pour la ième observation 
+et $\hat y_{i}$ la valeur de réponse prédite basée sur le modèle de régression linéaire multiple
+
+
+### 2.10 PCR (Principal Components Regression) 
+
+La PCR utilise la méthode des moindres carrés pour ajuster un modèle de régression linéaire. Elle utilise la validation croisée k-fold pour trouver le nombre optimal de composants PCR à conserver dans le modèle. Il s'agit de la même méthode pour la PLS que nous allons voir dans la partie 4. 
+
+
+*Le modèle PCR*
+
+```{r pcr1}
+library(pls)
+pcr1 = pcr(log_prix ~ sym_quanti$Surface.reelle.bati + sym_quanti$Nombre.pieces.principales + sym_quanti$Surface.terrain + sym_quanti$Code.postal + sym_quanti$Code.postal + sym_quanti$Nombre.de.lots + sym_quanti$Surface.Carrez.du.1er.lot + sym_quanti$Code.type.local, data=sym_quanti, scale=TRUE, validation="CV")
+#scale=TRUE : indique à R que chacune des variables prédictives doit être mise à l’échelle pour avoir une moyenne de 0 et un écart-type de 1.
+#validation="CV" : utilise la validation croisée k-fold pour évaluer les performances du modèle
+summary(pcr1)
+summary(lm(pcr1))
+```
+Pour le modèle n°1 : le log_prix en fonction de des variables explicatives, on peut voir que le nombre de composants principaux considérés est de 4, on va le vérifier graphiquement:
+
+*Choix du nombre de composants principaux*
+
+```{r pcr1_visualisation1}
+#visualize cross-validation plots
+validationplot(pcr1)
+validationplot(pcr1, val.type="MSEP")
+validationplot(pcr1, val.type="R2")
+```
+
+### 2.11 PLS (Partial Least Squares) 
+
+```{r pls1}
+pls1 = plsr(log_prix ~ sym_quanti$Surface.reelle.bati + sym_quanti$Nombre.pieces.principales + sym_quanti$Surface.terrain + sym_quanti$Code.postal + sym_quanti$Code.postal + sym_quanti$Nombre.de.lots + sym_quanti$Surface.Carrez.du.1er.lot + sym_quanti$Code.type.local, data=sym_quanti, scale=TRUE, validation="CV")
+
+summary(pls1)
+summary(lm(pls1))
+```
+
+Nous pouvons voir qu'en ajoutant la deuxième composante PLS, nous pouvons expliquer 11,55% de la variation de la variable de réponse. On va le vérifier graphiquement : 
+
+```{r pls1_visualisation1}
+#visualize cross-validation plots
+validationplot(pls1)
+validationplot(pls1, val.type="MSEP")
+validationplot(pls1, val.type="R2")
+```
+
+### 2.12 Ridge
+
+```{r ridge}
+library(glmnet)
+y_ridge <- sym_quanti$log_prix
+
+x_ridge <- data.matrix(sym_quanti[, c('Nombre.pieces.principales', 'Code.postal','Nombre.de.lots','Code.type.local')])
+
+ridge1 = glmnet(x_ridge, y_ridge, alpha = 0)
+summary(ridge1)
+```
+
+On va maintenant choisir une valeur optimale pour Lambda
+Pour cela, nous allons identifier la valeur lambda qui produit l’erreur quadratique moyenne de test (MSE) la plus faible en utilisant la validation croisée k-fold.
+
+```{r lambda_opt}
+cv_model <- cv.glmnet(x_ridge, y_ridge, alpha = 0)
+
+best_lambda <- cv_model$lambda.min
+best_lambda
+
+plot(cv_model) 
+```
+
+```{r visu}
+best_model <- glmnet(x_ridge, y_ridge, alpha = 0, lambda = best_lambda)
+coef(best_model)
+```
+
+Nous pouvons également produire un diagramme de trace pour visualiser comment les estimations de coefficients ont changé à la suite de l’augmentation de lambda :
+
+```{r visu_ridge}
+#produce Ridge trace plot
+plot(ridge1, xvar = "lambda")
+```
+
+Enfin, nous pouvons calculer le R-carré du modèle sur les données d’entraînement :
+
+```{r ridge_rsquared}
+#use fitted best model to make predictions
+y_predicted <- predict(ridge1, s = best_lambda, newx = x_ridge)
+
+#find SST and SSE
+sst <- sum((y_ridge - mean(y_ridge))^2)
+sse <- sum((y_predicted - y_ridge)^2)
+
+#find R-Squared
+rsq1 <- 1 - sse/sst
+rsq1
+
+```
+
+Le R-carré s’avère être 0.1595. 
+
+
+### 2.13 Lasso 
+
+```{r lasso}
+y_lasso <- sym_quanti$log_prix
+
+x_lasso <- data.matrix(sym_quanti[, c('Nombre.pieces.principales', 'Code.postal','Nombre.de.lots','Code.type.local')])
+
+lasso1 = glmnet(x_lasso, y_lasso, alpha = 1)
+summary(lasso1)
+```
+
+Il faut noter que définir alpha = 0 équivaut à utiliser la regression ridge, alpha = 1 équivaut à utiliser la régression Lasso et définir alpha sur une valeur comprise entre 0 et 1 équivaut à utiliser un réseau élastique.
+
+On va maintenant choisir une valeur optimale pour Lambda
+Pour cela, nous allons identifier la valeur lambda qui produit l’erreur quadratique moyenne de test (MSE) la plus faible en utilisant la validation croisée k-fold.
+
+
+```{r lasso_lambda_opt}
+lasso_model <- cv.glmnet(x_lasso, y_lasso, alpha = 1)
+
+best_lambda_lasso <- lasso_model$lambda.min
+best_lambda_lasso
+
+plot(lasso_model) 
+```
+
+Enfin, nous pouvons calculer le R-carré du modèle sur les données d’entraînement :
+
+```{r lasso_prediction}
+#use fitted best model to make predictions
+y_predict_l <- predict(lasso1, s = best_lambda_lasso, newx = x_lasso)
+
+#find SST and SSE
+sst <- sum((y_lasso - mean(y_lasso))^2)
+sse <- sum((y_predict_l - y_lasso)^2)
+
+#find R-Squared
+rsq2 <- 1 - sse/sst
+rsq2
+```
+
+Le R-carré s’avère être 0,1601, il est un tout petit meilleur que celui obtenu lors de la régression Ridge (0,159).
+
+### 2.14 Elastic net 
+
+L'Elastic net ce base sur les mêmes choses que pour le Lasso et le Ridge, ce qui va changer est la valeur du alpha (qui vaut 0 dans le cas d'une regression Ridge, 1 dans le cas d'une regression Lasso puis ici entre 0 et 1 pour un Elastic net).
+
+```{r elastic_net}
+y_elastic <- sym_quanti$log_prix
+
+x_elastic <- data.matrix(sym_quanti[, c('Nombre.pieces.principales', 'Code.postal','Nombre.de.lots','Code.type.local')])
+
+elastic1 = glmnet(x_elastic, y_elastic, alpha = 0.5)
+summary(elastic1)
+```
+
+On va maintenant choisir une valeur optimale pour Lambda
+Pour cela, nous allons identifier la valeur lambda qui produit l’erreur quadratique moyenne de test (MSE) la plus faible en utilisant la validation croisée k-fold.
+
+
+```{r alstic_lambda_opt}
+elastic_model <- cv.glmnet(x_elastic, y_elastic, alpha = 0.5)
+
+best_lambda_elastic <- elastic_model$lambda.min
+best_lambda_elastic
+
+plot(elastic_model) 
+
+y_predict_elas <- predict(elastic1, s = best_lambda_elastic, newx = x_elastic)
+
+```
+
+```{r elastic_prediction}
+#use fitted best model to make predictions
+y_predict_elas <- predict(elastic1, s = best_lambda_elastic, newx = x_elastic)
+
+#find SST and SSE
+sst <- sum((y_elastic - mean(y_elastic))^2)
+sse <- sum((y_predict_elas - y_elastic)^2)
+
+#find R-Squared
+rsq3 <- 1 - sse/sst
+rsq3
+```
+
+**Tableau récapitulatif :**
+
+```{r recap_diagn}
+glm_models = list(pcr1, pls1, ridge1, lasso1, elastic1)
+
+vecteur11 = c(summary(lm(pcr1))$r.squared, summary(lm(pls1))$r.squared, rsq1, rsq2, rsq3)
+vecteur1 = c(rmse(Y, predict(pcr1)), rmse(Y, predict(pls1)), rmse(Y, y_predicted), rmse(Y, y_predict_l), rmse(Y, y_predict_elas))
+vecteur2 = c(mae(Y, predict(pcr1)), mae(Y, predict(pls1)), mae(Y, y_predicted), mae(Y, y_predict_l), mae(Y, y_predict_elas))
+vecteur3 = c('','', round(best_lambda, 2), round(best_lambda_lasso, 2), round(best_lambda_elastic, 2))
+tableau = data.frame(vecteur11, vecteur1,vecteur2, vecteur3) 
+colnames(tableau) = c("R²","RMSE","MAE","Lambda")
+rownames(tableau) = c("PCR","PLS","Ridge","Lasso", "Elastic net")
+
+tableau %>%
+  kbl() %>%
+  kable_paper(full_width = F) 
+```
+
+Les R² sont quasi identiques pour tous les modèles, autour de 0.16. Cela signifie que tous les modèles expliquent environ 16 % de la variance, ce qui est faible.
+
+Les meilleurs RMSE sont obtenus par Ridge, Lasso et Elastic Net, quasiment identiques.PCR est clairement le moins performant.
+
+Le meilleur MAE est obtenu par Ridge (1.413), suivi de très près par Lasso et Elastic Net.
+
+Le fait que Lasso et Elastic Net aient λ = 0 signifie que la régularisation n’a pas été utile pour ces modèles.
+
+# Conclusion :
+
+L’ensemble des modèles testés : régression linéaire classique et modèles linéaires généralisés, montrent que plusieurs variables explicatives contribuent significativement à la prédiction du prix immobilier, mais que la capacité globale de ces modèles à expliquer la variabilité du prix reste limitée.
+
+Les méthodes de régression régularisée et de réduction de dimension : PCR, PLS, Ridge, Lasso et Elastic Net, ont été évaluées afin d’examiner leur capacité à améliorer la prédiction du prix immobilier. Les résultats obtenus montrent que, malgré des approches méthodologiques différentes, ces modèles n’apportent qu’une amélioration marginale par rapport aux modèles linéaires classiques.
+
+La régression linéaire appliquée au logarithme du prix met en évidence l’importance de certaines caractéristiques structurelles du bien, notamment le **nombre de pièces principales**, le **code postal**, le **nombre de lots** et le **type de local**, qui apparaissent systématiquement significatifs. En revanche, d’autres variables comme la **surface réelle bâtie**, la **surface du terrain** ou la **surface Carrez du premier lot** n’apportent pas d’effet statistiquement marqué dans ce cadre.
+
+Le GLM gaussien avec lien logarithmique confirme globalement ces résultats : les mêmes variables ressortent significatives, et les coefficients conservent une interprétation cohérente avec celle du modèle linéaire. Les critères d’information (AIC, BIC) montrent que ce modèle offre un ajustement légèrement meilleur, tandis que la régression linéaire conserve une erreur de prédiction (RMSE) marginalement plus faible. Les tests statistiques indiquent par ailleurs que, malgré des structures de variance différentes, **aucun des deux modèles ne surpasse significativement l’autre en termes de qualité d’ajustement globale**.
+
+Dans l’ensemble, ces résultats suggèrent que les relations entre les caractéristiques du bien et son prix de vente sont **partiellement capturées par des modèles linéaires**, mais qu’une part importante de la variabilité demeure inexpliquée. Cela peut refléter la présence d’effets non linéaires, ou encore l’influence de facteurs non observés.  
+
+Ainsi, bien que les modèles linéaires fournissent une base solide pour la prédiction du prix immobilier, l’amélioration de la performance prédictive pourrait nécessiter des approches, telles que des modèles non linéaires, des méthodes d’apprentissage automatique ou l’intégration de nouvelles variables explicatives.
+
