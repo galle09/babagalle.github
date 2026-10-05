@@ -558,6 +558,56 @@
     .hero-photo, .hero-photo-placeholder { width: 120px; height: 120px; }
   }
 
+
+  /* ── PROJECT TABS ── */
+  .proj-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 36px;
+    border-bottom: 1px solid var(--border);
+  }
+  .proj-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 14px 28px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--muted);
+  }
+  .proj-tab:hover { color: var(--text); background: rgba(201,168,76,0.04); }
+  .proj-tab.active {
+    color: var(--text);
+    border-bottom-color: var(--accent);
+    background: rgba(201,168,76,0.05);
+  }
+  .tab-icon { font-size: 18px; }
+  .tab-label {
+    font-family: 'DM Serif Display', serif;
+    font-size: 15px;
+    font-weight: 400;
+  }
+  .proj-tab.active .tab-label { color: var(--accent); }
+  .tab-sub {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    opacity: 0.7;
+  }
+  .proj-tab-content { display: none; }
+  .proj-tab-content.active { display: block; }
+  @media(max-width:600px){
+    .proj-tabs { flex-direction: column; border-bottom: none; gap: 4px; }
+    .proj-tab { border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; flex-direction: row; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); margin: 0; }
+    .proj-tab.active { border-color: var(--accent); }
+  }
+
 </style>
 </head>
 <body>
@@ -568,6 +618,7 @@
   <div class="nav-logo">BGN.</div>
   <div class="nav-links">
     <a href="#projets">Projets</a>
+    <a href="#apprentissages">Apprentissages</a>
     <a href="#competences">Compétences</a>
     <a href="#experience">Expérience</a>
     <a href="#formation">Formation</a>
@@ -597,15 +648,15 @@
   </div>
 
   <div class="hero-text">
-    <div class="hero-badge">Disponible · Recherche d'alternance M2</div>
+    <div class="hero-badge">Disponible · Recherche de stage - Avril 2027</div>
     <h1>Baba Galle<br><em>Ndiaye</em></h1>
     <p class="hero-sub">
-      Étudiant en <strong style="color:var(--text);">M1 Mathématiques Appliquées & Statistiques</strong><br>
+      Étudiant en <strong style="color:var(--text);">M2 Mathématiques Appliquées, Statistiques et Traitement de Données</strong><br>
       <span style="color:var(--accent);font-family:'DM Mono',monospace;font-size:13px;">Université Clermont Auvergne · Clermont-Ferrand</span>
     </p>
     <p style="font-size:14px;color:var(--muted);margin-bottom:36px;line-height:1.8;">
       Data Science · Machine Learning · Analyse de données<br>
-      <span style="color:var(--accent2);font-weight:500;">En recherche d'alternance pour le M2</span>&nbsp;<span style="color:var(--accent);font-family:'DM Mono',monospace;font-size:12px;">-</span>&nbsp;<span style="color:var(--accent2);font-weight:500;">septembre 2026</span>
+      <span style="color:var(--accent2);font-weight:500;">En recherche d'un stage de 5 mois minimum</span>&nbsp;<span style="color:var(--accent);font-family:'DM Mono',monospace;font-size:12px;">-</span>&nbsp;<span style="color:var(--accent2);font-weight:500;">à partir d'avril 2027</span>
     </p>
     <div class="hero-tags">
       <span class="tag">Python</span>
@@ -629,11 +680,11 @@
       <div class="label">Expériences</div>
     </div>
     <div class="stat-box">
-      <div class="num">3</div>
+      <div class="num">5</div>
       <div class="label">Projets</div>
     </div>
     <div class="stat-box">
-      <div class="num">M1</div>
+      <div class="num">M2</div>
       <div class="label">Niveau actuel</div>
     </div>
   </div>
@@ -643,11 +694,32 @@
 
 <!-- PROJETS -->
 <section id="projets">
-  <div class="section-label">// 01 - Projets</div>
+  <div class="section-label">// 01. Projets</div>
   <h2 class="section-title">Ce que j'ai <em>construit</em></h2>
-  <div class="projects-grid">
 
-    <div class="project-card" style="border-color:rgba(201,168,76,0.35);">
+  <!-- TABS FOLDERS -->
+  <div class="proj-tabs">
+    <button class="proj-tab active" onclick="switchTab(this,'tab-m1')">
+      <span class="tab-icon">🎓</span>
+      <span class="tab-label">Projets M1</span>
+      <span class="tab-sub">2025 - 2026</span>
+    </button>
+    <button class="proj-tab" onclick="switchTab(this,'tab-m2')">
+      <span class="tab-icon">🚀</span>
+      <span class="tab-label">Projets M2</span>
+      <span class="tab-sub">2026 - 2027</span>
+    </button>
+    <button class="proj-tab" onclick="switchTab(this,'tab-perso')">
+      <span class="tab-icon">💡</span>
+      <span class="tab-label">Projets personnels</span>
+      <span class="tab-sub">En continu</span>
+    </button>
+  </div>
+
+  <!-- TAB CONTENT M1 -->
+  <div id="tab-m1" class="proj-tab-content active">
+    <div class="projects-grid">
+<div class="project-card" style="border-color:rgba(201,168,76,0.35);">
       <div class="proj-top">
         <div class="proj-icon">🧬</div>
         <span class="proj-badge-type" style="background:rgba(201,168,76,0.15);border-color:rgba(201,168,76,0.4);">⭐ Hackathon IA</span>
@@ -682,9 +754,9 @@
         </div>
       </div>
       <ul style="list-style:none;margin-bottom:16px;">
-        <li style="font-size:12px;color:var(--muted);padding-left:16px;position:relative;margin-bottom:5px;line-height:1.6;"><span style="position:absolute;left:0;color:var(--accent);">&#8594;</span> Meilleur modèle : <strong style="color:var(--text);">Stacking (Ridge + RF + LightGBM)</strong> - comparable à l'horloge Horvath (3.6 ans)</li>
-        <li style="font-size:12px;color:var(--muted);padding-left:16px;position:relative;margin-bottom:5px;line-height:1.6;"><span style="position:absolute;left:0;color:var(--accent);">&#8594;</span> Meilleur compromis : <strong style="color:var(--text);">ElasticNet</strong> - MAE 3.27 ans avec seulement 554 CpG</li>
-        <li style="font-size:12px;color:var(--muted);padding-left:16px;position:relative;margin-bottom:5px;line-height:1.6;"><span style="position:absolute;left:0;color:var(--accent);">&#8594;</span> Robustesse : erreur double à 50% de CpG manquants - XGBoost moins robuste que Ridge+médiane</li>
+        <li style="font-size:12px;color:var(--muted);padding-left:16px;position:relative;margin-bottom:5px;line-height:1.6;"><span style="position:absolute;left:0;color:var(--accent);">&#8594;</span> Meilleur modèle : <strong style="color:var(--text);">Stacking (Ridge + RF + LightGBM)</strong>, comparable à l'horloge Horvath (3.6 ans)</li>
+        <li style="font-size:12px;color:var(--muted);padding-left:16px;position:relative;margin-bottom:5px;line-height:1.6;"><span style="position:absolute;left:0;color:var(--accent);">&#8594;</span> Meilleur compromis : <strong style="color:var(--text);">ElasticNet</strong>, MAE 3.27 ans avec seulement 554 CpG</li>
+        <li style="font-size:12px;color:var(--muted);padding-left:16px;position:relative;margin-bottom:5px;line-height:1.6;"><span style="position:absolute;left:0;color:var(--accent);">&#8594;</span> Robustesse : erreur double à 50% de CpG manquants, XGBoost moins robuste que Ridge+médiane</li>
         <li style="font-size:12px;color:var(--muted);padding-left:16px;position:relative;margin-bottom:5px;line-height:1.6;"><span style="position:absolute;left:0;color:var(--accent);">&#8594;</span> 400 sujets · 50 000 CpG · validation croisée 5-fold · pipeline reproductible</li>
       </ul>
       <div style="display:flex;gap:10px;flex-wrap:wrap;padding-top:14px;border-top:1px solid var(--border);">
@@ -724,9 +796,9 @@
       </div>
 
       <ul style="list-style:none;margin-bottom:16px;">
-        <li style="font-size:12px;color:var(--muted);padding-left:16px;position:relative;margin-bottom:5px;line-height:1.6;"><span style="position:absolute;left:0;color:var(--accent);">&#8594;</span> <strong style="color:var(--text);">1 387 077 obs.</strong> - filtrage sur le Puy-de-Dôme (dept. 63), 200 000 lignes échantillonnées</li>
+        <li style="font-size:12px;color:var(--muted);padding-left:16px;position:relative;margin-bottom:5px;line-height:1.6;"><span style="position:absolute;left:0;color:var(--accent);">&#8594;</span> <strong style="color:var(--text);">1 387 077 obs.</strong> filtrage sur le Puy-de-Dôme (dept. 63), 200 000 lignes échantillonnées</li>
         <li style="font-size:12px;color:var(--muted);padding-left:16px;position:relative;margin-bottom:5px;line-height:1.6;"><span style="position:absolute;left:0;color:var(--accent);">&#8594;</span> Gestion des NA (taux > 95% supprimés), traitement des outliers et transformation log du prix</li>
-        <li style="font-size:12px;color:var(--muted);padding-left:16px;position:relative;margin-bottom:5px;line-height:1.6;"><span style="position:absolute;left:0;color:var(--accent);">&#8594;</span> Comparaison LM, GLM (lien log), PCR, PLS, Ridge, Lasso, ElasticNet - sélection par AIC/BIC</li>
+        <li style="font-size:12px;color:var(--muted);padding-left:16px;position:relative;margin-bottom:5px;line-height:1.6;"><span style="position:absolute;left:0;color:var(--accent);">&#8594;</span> Comparaison LM, GLM (lien log), PCR, PLS, Ridge, Lasso, ElasticNet, sélection par AIC/BIC</li>
         <li style="font-size:12px;color:var(--muted);padding-left:16px;position:relative;margin-bottom:5px;line-height:1.6;"><span style="position:absolute;left:0;color:var(--accent);">&#8594;</span> Variables clés : surface bâtie, surface Carrez, nombre de pièces, code postal, type de local</li>
       </ul>
 
@@ -742,108 +814,112 @@
       </div>
     </div>
 
-    <div class="project-card">
+
+    <!-- NLP Enron -->
+    <div class="project-card" style="border-color:rgba(201,168,76,0.22);">
       <div class="proj-top">
-        <div class="proj-icon">📊</div>
-        <span class="proj-badge-type">CRM & Analytics</span>
+        <div class="proj-icon">🔤</div>
+        <span class="proj-badge-type" style="background:rgba(201,168,76,0.08);border-color:rgba(201,168,76,0.28);">NLP · Analyse textuelle</span>
       </div>
-      <div class="proj-name">Optimisation CRM - Vroom Market</div>
-      <div style="font-size:11px;color:var(--accent);font-family:'DM Mono',monospace;margin-bottom:8px;letter-spacing:0.05em;">Stage · Avr–Juin 2026</div>
-      <div class="proj-desc">Structuration et nettoyage de la base de données leads, mise en place de processus qualité, et création de tableaux de bord de suivi commercial (leads, RDV, performance SDR) pour piloter la performance via la data.</div>
+      <div class="proj-name">Analyse NLP du scandale Enron par AFC</div>
+      <div style="font-size:11px;color:var(--accent);font-family:'DM Mono',monospace;margin-bottom:8px;letter-spacing:0.05em;">Master 1 · Université Clermont Auvergne · 2025-2026</div>
+      <div class="proj-desc">Analyse de textes par Analyse Factorielle des Correspondances (AFC) appliquée aux e-mails du corpus Enron. Extraction automatique de thèmes, mise en évidence des patterns linguistiques liés au scandale financier.</div>
       <div class="proj-stack">
-        <span class="stack-pill">Power BI</span>
-        <span class="stack-pill">SQL</span>
-        <span class="stack-pill">Power Query</span>
-        <span class="stack-pill">Excel</span>
-        <span class="stack-pill">Python</span>
+        <span class="stack-pill">R</span>
+        <span class="stack-pill">R Markdown</span>
+        <span class="stack-pill">AFC</span>
+        <span class="stack-pill">NLP</span>
+        <span class="stack-pill">ggplot2</span>
       </div>
       <div class="proj-metrics">
-        <div class="proj-metric">Contexte <strong>Avr–Juin 2026</strong></div>
-        <div class="proj-metric">Focus <strong>CRM & Leads</strong></div>
+        <div class="proj-metric">Corpus <strong>Enron Emails</strong></div>
+        <div class="proj-metric">Méthode <strong>AFC · NLP</strong></div>
+      </div>
+    </div>
+    </div>
+  </div>
+
+  <!-- TAB CONTENT M2 -->
+  <div id="tab-m2" class="proj-tab-content">
+    <div class="projects-grid">
+<!-- Analyse de survie - M2 en cours -->
+    <div class="project-card" style="border-color:rgba(201,168,76,0.35); position:relative; overflow:hidden;">
+      <div style="position:absolute;top:12px;right:12px;font-family:'DM Mono',monospace;font-size:10px;padding:2px 10px;border-radius:100px;background:rgba(201,168,76,0.1);color:var(--accent);border:1px solid rgba(201,168,76,0.3);">En cours</div>
+      <div class="proj-top">
+        <div class="proj-icon">📉</div>
+        <span class="proj-badge-type" style="background:rgba(201,168,76,0.08);border-color:rgba(201,168,76,0.28);">Analyse de survie · R</span>
+      </div>
+      <div class="proj-name">Prédiction du risque de défaut de crédit</div>
+      <div style="font-size:11px;color:var(--accent);font-family:'DM Mono',monospace;margin-bottom:8px;letter-spacing:0.05em;">Master 2 · Université Clermont Auvergne · 2026-2027</div>
+      <div class="proj-desc">Comparaison entre le modèle de Cox traditionnel et le Random Survival Forest pour la prédiction du risque de défaut de crédit. Étude de l'apport du ML dans l'analyse de survie tout en conservant l'explicabilité exigée par le métier.</div>
+      <div class="proj-stack">
+        <span class="stack-pill">R</span>
+        <span class="stack-pill">survival</span>
+        <span class="stack-pill">randomForestSRC</span>
+        <span class="stack-pill">Cox PH</span>
+        <span class="stack-pill">RSF</span>
+      </div>
+      <div class="proj-metrics">
+        <div class="proj-metric">Méthode <strong>Cox vs RSF</strong></div>
+        <div class="proj-metric">Domaine <strong>Finance · Crédit</strong></div>
+        <div class="proj-metric">Focus <strong>Explicabilité</strong></div>
       </div>
     </div>
 
+    <div class="project-card" style="border-style:dashed;border-color:rgba(201,168,76,0.2);background:rgba(13,21,38,0.5);display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:180px;text-align:center;gap:12px;">
+      <div style="font-size:28px;opacity:0.4;">⏳</div>
+      <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);letter-spacing:0.08em;">D'autres projets M2 à venir</div>
+      <div style="font-size:13px;color:var(--muted);opacity:0.7;max-width:280px;">Cette section se remplira au fur et à mesure de mon Master 2 (2026–2027).</div>
+    </div>
+    </div>
+  </div>
+
+  <!-- TAB CONTENT PERSO -->
+  <div id="tab-perso" class="proj-tab-content">
+    <div class="projects-grid">
+<!-- Power BI Dashboard -->
     <div class="project-card" style="border-color:rgba(201,168,76,0.35); position:relative; overflow:hidden;">
-      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#c9a84c,#e8c97a);"></div>
       <div class="proj-top">
-        <div class="proj-icon">📈</div>
-        <span class="proj-badge-type" style="background:rgba(201,168,76,0.15);border-color:rgba(201,168,76,0.4);color:var(--accent);">Dashboard · BI</span>
+        <div class="proj-icon">📊</div>
+        <span class="proj-badge-type" style="background:rgba(201,168,76,0.15);border-color:rgba(201,168,76,0.4);color:var(--accent);">Dashboard · Power BI</span>
       </div>
-      <div class="proj-name">Analyse de la performance commerciale des SDR</div>
-
-      <div class="proj-desc">Conception d'un système complet de pilotage commercial pour les Sales Development Representatives : modélisation des données CRM, calcul des KPIs clés (leads contactés, RDV générés, taux de conversion, performance par SDR), segmentation avancée des leads et identification des leviers d'optimisation. Le dashboard permet un suivi en temps réel de l'activité et une prise de décision data-driven.</div>
-
+      <div class="proj-name">Dashboard de visualisation Power BI</div>
+      <div style="font-size:11px;color:var(--accent);font-family:'DM Mono',monospace;margin-bottom:8px;letter-spacing:0.05em;">Projet personnel · 2025 – 2026</div>
+      <div class="proj-desc">Conception et développement d'un dashboard interactif Power BI : modélisation des données, création de mesures DAX, mise en page et visualisations dynamiques pour le suivi et l'analyse de données métier.</div>
       <div class="proj-stack" style="margin-bottom:14px;">
         <span class="stack-pill">Power BI</span>
-        <span class="stack-pill">SQL</span>
-        <span class="stack-pill">Power Query</span>
-        <span class="stack-pill">Excel</span>
-        <span class="stack-pill">Python</span>
         <span class="stack-pill">DAX</span>
+        <span class="stack-pill">Power Query</span>
+        <span class="stack-pill">Data Modeling</span>
       </div>
-
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;">
-        <div style="text-align:center;padding:10px 6px;background:rgba(201,168,76,0.04);border-radius:8px;border:1px solid rgba(201,168,76,0.12);">
-          <div style="font-family:'DM Mono',monospace;font-size:16px;color:var(--accent);font-weight:500;">KPIs</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:0.05em;">Suivi temps réel</div>
-        </div>
-        <div style="text-align:center;padding:10px 6px;background:rgba(201,168,76,0.04);border-radius:8px;border:1px solid rgba(201,168,76,0.12);">
-          <div style="font-family:'DM Mono',monospace;font-size:16px;color:var(--accent);font-weight:500;">CRM</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:0.05em;">Données nettoyées</div>
-        </div>
-        <div style="text-align:center;padding:10px 6px;background:rgba(201,168,76,0.04);border-radius:8px;border:1px solid rgba(201,168,76,0.12);">
-          <div style="font-family:'DM Mono',monospace;font-size:16px;color:var(--accent);font-weight:500;">SDR</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:0.05em;">Performance / agent</div>
-        </div>
-      </div>
-
-      <ul style="list-style:none;margin-bottom:16px;">
-        <li style="font-size:12px;color:var(--muted);padding-left:16px;position:relative;margin-bottom:5px;line-height:1.6;"><span style="position:absolute;left:0;color:var(--accent);">&#8594;</span> Nettoyage et structuration de la base leads CRM</li>
-        <li style="font-size:12px;color:var(--muted);padding-left:16px;position:relative;margin-bottom:5px;line-height:1.6;"><span style="position:absolute;left:0;color:var(--accent);">&#8594;</span> Calcul des taux de conversion leads → RDV → closing par SDR</li>
-        <li style="font-size:12px;color:var(--muted);padding-left:16px;position:relative;margin-bottom:5px;line-height:1.6;"><span style="position:absolute;left:0;color:var(--accent);">&#8594;</span> Segmentation des leads et identification des segments les plus performants</li>
-        <li style="font-size:12px;color:var(--muted);padding-left:16px;position:relative;margin-bottom:5px;line-height:1.6;"><span style="position:absolute;left:0;color:var(--accent);">&#8594;</span> Dashboard interactif Power BI pour le pilotage de la performance commerciale</li>
-      </ul>
-
-      <div style="border-top:1px solid var(--border);padding-top:14px;">
-        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:7px;">
-          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-          Démo — Dashboard Performance SDR
-        </div>
-        <video controls preload="metadata" style="width:100%;border-radius:10px;display:block;background:#000;max-height:220px;">
+      <div style="border-radius:10px;overflow:hidden;border:1px solid rgba(201,168,76,0.2);margin-bottom:14px;">
+        <video controls style="width:100%;display:block;max-height:220px;object-fit:cover;background:#000;" preload="metadata">
           <source src="Enregistrement_2026-05-29_174518.mp4" type="video/mp4"/>
           Votre navigateur ne supporte pas la lecture vidéo.
         </video>
       </div>
-    </div>
-
-    <div class="project-card">
-      <div class="proj-top">
-        <div class="proj-icon">📦</div>
-        <span class="proj-badge-type">Dashboard</span>
-      </div>
-      <div class="proj-name">Prévision des ventes - Nestlé</div>
-      <div class="proj-desc">Collecte et nettoyage des données de ventes, analyses statistiques et développement d'un modèle de prévision. Création d'un tableau de bord Power BI pour le suivi des stocks et ruptures par zone géographique.</div>
-      <div class="proj-stack">
-        <span class="stack-pill">Python</span>
-        <span class="stack-pill">Power BI</span>
-        <span class="stack-pill">SQL</span>
-        <span class="stack-pill">Power Query</span>
-        <span class="stack-pill">Excel</span>
-      </div>
       <div class="proj-metrics">
-        <div class="proj-metric">Contexte <strong>Avr–Juin 2025</strong></div>
-        <div class="proj-metric">Type <strong>Prod</strong></div>
+        <div class="proj-metric">Type <strong>Personnel</strong></div>
+        <div class="proj-metric">Outil <strong>Power BI</strong></div>
       </div>
     </div>
 
+    <div class="project-card" style="border-style:dashed;border-color:rgba(201,168,76,0.2);background:rgba(13,21,38,0.5);display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:180px;text-align:center;gap:12px;">
+      <div style="font-size:28px;opacity:0.4;">🛠️</div>
+      <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);letter-spacing:0.08em;">D'autres projets à venir</div>
+      <div style="font-size:13px;color:var(--muted);opacity:0.7;max-width:280px;">Side-projects et expérimentations en cours de développement.</div>
+    </div>
   </div>
+    </div>
+  </div>
+
 </section>
 
 <div class="divider"></div>
 
 <!-- COMPÉTENCES -->
 <section id="competences">
-  <div class="section-label">// 02 - Compétences</div>
+  <div class="section-label">// 02. Compétences</div>
   <h2 class="section-title">Mon <em>stack</em> technique</h2>
   <div class="skills-layout">
 
@@ -879,6 +955,7 @@
       <div class="skill-item"><div class="skill-name-col">Excel / VBA</div><div class="skill-track"><div class="skill-fill" data-w="0.78"></div></div><div class="skill-pct">78%</div></div>
     </div>
 
+
   </div>
 </section>
 
@@ -886,7 +963,7 @@
 
 <!-- EXPÉRIENCE -->
 <section id="experience">
-  <div class="section-label">// 03 - Expérience</div>
+  <div class="section-label">// 03. Expérience</div>
   <h2 class="section-title">Mon <em>parcours</em></h2>
 
   <!-- STAGES -->
@@ -899,11 +976,11 @@
 
     <div class="exp-item">
       <div class="exp-meta">
-        <span class="exp-year">Avril – Juin 2026</span>
+        <span class="exp-year">Avril - Juin 2026</span>
         <span class="exp-duration">3 mois</span>
       </div>
       <div class="exp-role">Stagiaire Business / Data Analyst</div>
-      <div class="exp-company">Vroom Market - France · Optimisation CRM & Performance commerciale</div>
+      <div class="exp-company">Vroom Market, France · Optimisation CRM & Performance commerciale</div>
       <ul class="exp-bullets">
         <li>Améliorer la qualité et la fiabilité du CRM</li>
         <li>Structuration et nettoyage de la base de données leads</li>
@@ -933,78 +1010,177 @@
 
   </div>
 
-  <!-- PROJETS ACADÉMIQUES -->
+
+</section>
+
+
+<div class="divider"></div>
+
+<!-- APPRENTISSAGES -->
+<section id="apprentissages">
+  <div class="section-label">// 04. Apprentissages</div>
+  <h2 class="section-title">Ce que j'ai <em>appris</em></h2>
+  <p style="color:var(--muted);max-width:640px;margin-bottom:48px;font-size:14px;line-height:1.9;">Un aperçu des compétences et savoirs acquis au fil de mon parcours académique, de la Licence au Master.</p>
+
+  <!-- LICENCE -->
   <div style="display:flex;align-items:center;gap:14px;margin-bottom:28px;">
-    <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;white-space:nowrap;">Projets académiques</div>
+    <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;white-space:nowrap;">📚 Licence Mathématiques · 2022 - 2024</div>
     <div style="flex:1;height:1px;background:linear-gradient(90deg,rgba(201,168,76,0.5),transparent);"></div>
   </div>
-
-  <div class="exp-timeline">
-
-    <div class="exp-item">
-      <div class="exp-meta">
-        <span class="exp-year">Mai 2026</span>
-        <span class="exp-duration">Hackathon IA</span>
-      </div>
-      <div class="exp-role">Prédiction de l'âge biologique par méthylation de l'ADN</div>
-      <div class="exp-company">Master 1 · Université Clermont Auvergne · Équipe de 3 · Sujet CHU Clermont-Ferrand</div>
-      <ul class="exp-bullets">
-        <li>Pipeline ML épigénétique sur 400 sujets et 50 000 sites CpG</li>
-        <li>Comparaison de 9 algorithmes : Ridge, Lasso, ElasticNet, SVM, RF, MLP, XGBoost, LightGBM, Stacking</li>
-        <li>Meilleur modèle : Stacking - MAE 3,21 ans, R² 0,954 (niveau horloge Horvath)</li>
-        <li>Analyse de robustesse aux CpG manquants (20%, 50%, 90%) et validation croisée 5-fold</li>
-        <li>Outils : Python, Scikit-learn, Git, Jupyter, VSCode</li>
-      </ul>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;margin-bottom:52px;">
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 22px;">
+      <div style="font-size:20px;margin-bottom:10px;">🎲</div>
+      <div style="font-weight:600;font-size:14px;margin-bottom:6px;">Probabilités & Statistiques</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.7;">Probabilités, variables aléatoires, statistiques descriptives et inférentielles, tests d'hypothèses.</div>
     </div>
-
-    <div class="exp-item">
-      <div class="exp-meta">
-        <span class="exp-year">2025 - 2026</span>
-        <span class="exp-duration">Projet M1</span>
-      </div>
-      <div class="exp-role">Prédiction du prix de vente immobilier</div>
-      <div class="exp-company">Master 1 · Université Clermont Auvergne · Binôme avec Essossimna Sansan</div>
-      <ul class="exp-bullets">
-        <li>Analyse de 1 387 077 transactions immobilières (DVF 2025, Puy-de-Dôme)</li>
-        <li>Nettoyage des données : gestion des NA, valeurs aberrantes, transformation log du prix</li>
-        <li>Comparaison de modèles : LM, GLM, PCR, PLS, Ridge, Lasso, ElasticNet, Random Forest</li>
-        <li>Sélection de variables et validation par AIC/BIC - rapport R Markdown complet</li>
-        <li>Outils : R, tidyverse, ggplot2, caret, FactoMineR, glmnet</li>
-      </ul>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 22px;">
+      <div style="font-size:20px;margin-bottom:10px;">📐</div>
+      <div style="font-weight:600;font-size:14px;margin-bottom:6px;">Analyse numérique</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.7;">Introduction à l'analyse numérique, méthodes d'approximation et de résolution d'équations.</div>
     </div>
-
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 22px;">
+      <div style="font-size:20px;margin-bottom:10px;">∫</div>
+      <div style="font-weight:600;font-size:14px;margin-bottom:6px;">Théorie de la mesure</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.7;">Fondements mathématiques rigoureux : mesures, intégrales de Lebesgue, espaces de fonctions.</div>
+    </div>
   </div>
+
+  <!-- MASTER 1 -->
+  <div style="display:flex;align-items:center;gap:14px;margin-bottom:28px;">
+    <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;white-space:nowrap;">📗 Master 1 · 2024 - 2026</div>
+    <div style="flex:1;height:1px;background:linear-gradient(90deg,rgba(201,168,76,0.5),transparent);"></div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;margin-bottom:52px;">
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 22px;border-left:3px solid var(--accent);">
+      <div style="font-size:20px;margin-bottom:10px;">📊</div>
+      <div style="font-weight:600;font-size:14px;margin-bottom:6px;">Analyse de données I & II + TP VBA</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.7;">Analyse exploratoire, statistiques multivariées, ACP, AFC, classification. Travaux pratiques sous Excel/VBA.</div>
+      <div style="margin-top:10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);opacity:0.8;">M1 · Validé</div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 22px;border-left:3px solid var(--accent);">
+      <div style="font-size:20px;margin-bottom:10px;">🗄️</div>
+      <div style="font-weight:600;font-size:14px;margin-bottom:6px;">Bases de données & Entrepôts de données</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.7;">Modélisation relationnelle, SQL/PostgreSQL, conception d'entrepôts de données, modèles dimensionnels.</div>
+      <div style="margin-top:10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);opacity:0.8;">M1 · Validé</div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 22px;border-left:3px solid var(--accent);">
+      <div style="font-size:20px;margin-bottom:10px;">🎲</div>
+      <div style="font-weight:600;font-size:14px;margin-bottom:6px;">Calculs de probabilité</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.7;">Probabilités avancées, lois de probabilité, convergences, théorèmes limites, espérance conditionnelle.</div>
+      <div style="margin-top:10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);opacity:0.8;">M1 · Validé</div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 22px;border-left:3px solid var(--accent);">
+      <div style="font-size:20px;margin-bottom:10px;">🌊</div>
+      <div style="font-weight:600;font-size:14px;margin-bottom:6px;">Algorithmes stochastiques</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.7;">Chaînes de Markov, Monte-Carlo, MCMC, algorithmes d'optimisation stochastique.</div>
+      <div style="margin-top:10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);opacity:0.8;">M1 · Validé</div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 22px;border-left:3px solid var(--accent);">
+      <div style="font-size:20px;margin-bottom:10px;">💼</div>
+      <div style="font-weight:600;font-size:14px;margin-bottom:6px;">Gestion financière</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.7;">Analyse financière, gestion des risques, notions de comptabilité et finance d'entreprise.</div>
+      <div style="margin-top:10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);opacity:0.8;">M1 · Validé</div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 22px;border-left:3px solid var(--accent);">
+      <div style="font-size:20px;margin-bottom:10px;">🗣️</div>
+      <div style="font-weight:600;font-size:14px;margin-bottom:6px;">Communication & Insertion professionnelle</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.7;">Techniques de communication, rédaction professionnelle, préparation à l'insertion en entreprise.</div>
+      <div style="margin-top:10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);opacity:0.8;">M1 · Validé</div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 22px;border-left:3px solid var(--accent);">
+      <div style="font-size:20px;margin-bottom:10px;">💻</div>
+      <div style="font-weight:600;font-size:14px;margin-bottom:6px;">Programmation & Outils data science</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.7;">Python, R, SAS - pandas, NumPy, scikit-learn, keras, TensorFlow, PyTorch, tidyverse, ggplot2. Git, LaTeX, Jupyter, VSCode.</div>
+      <div style="margin-top:10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);opacity:0.8;">M1 · Validé</div>
+    </div>
+  </div>
+
+  <!-- MASTER 2 -->
+  <div style="display:flex;align-items:center;gap:14px;margin-bottom:28px;">
+    <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;white-space:nowrap;">🚀 Master 2 · 2026 - 2027</div>
+    <div style="flex:1;height:1px;background:linear-gradient(90deg,rgba(201,168,76,0.5),transparent);"></div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;margin-bottom:32px;">
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 22px;border-left:3px solid var(--accent);">
+      <div style="font-size:20px;margin-bottom:10px;">🤖</div>
+      <div style="font-weight:600;font-size:14px;margin-bottom:6px;">Machine Learning & Data Mining</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.7;">Régression, classification, clustering, réduction de dimension, ensemble methods (Random Forest, XGBoost, Stacking), validation croisée.</div>
+      <div style="margin-top:10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);opacity:0.8;">M2 · En cours</div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 22px;border-left:3px solid var(--accent);">
+      <div style="font-size:20px;margin-bottom:10px;">🧠</div>
+      <div style="font-weight:600;font-size:14px;margin-bottom:6px;">Deep Learning & NLP</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.7;">Réseaux de neurones, CNN, RNN, transformers, TensorFlow, PyTorch. Traitement automatique du langage naturel.</div>
+      <div style="margin-top:10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);opacity:0.8;">M2 · En cours</div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 22px;border-left:3px solid var(--accent);">
+      <div style="font-size:20px;margin-bottom:10px;">📊</div>
+      <div style="font-weight:600;font-size:14px;margin-bottom:6px;">Statistiques avancées</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.7;">Modèles GLM/GAM, séries temporelles, biostatistiques, tests d'hypothèses avancés.</div>
+      <div style="margin-top:10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);opacity:0.8;">M2 · En cours</div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 22px;border-left:3px solid var(--accent);">
+      <div style="font-size:20px;margin-bottom:10px;">📉</div>
+      <div style="font-weight:600;font-size:14px;margin-bottom:6px;">Analyse de survie</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.7;">Modèles de Cox, Kaplan-Meier, Random Survival Forest. Application à la prédiction du risque de défaut de crédit.</div>
+      <div style="margin-top:10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);opacity:0.8;">M2 · En cours</div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 22px;border-left:3px solid var(--accent);">
+      <div style="font-size:20px;margin-bottom:10px;">📆</div>
+      <div style="font-weight:600;font-size:14px;margin-bottom:6px;">Séries chronologiques</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.7;">Modèles ARIMA, SARIMA, lissage exponentiel, prévision à court et long terme.</div>
+      <div style="margin-top:10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);opacity:0.8;">M2 · En cours</div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 22px;border-left:3px solid var(--accent);">
+      <div style="font-size:20px;margin-bottom:10px;">🔮</div>
+      <div style="font-weight:600;font-size:14px;margin-bottom:6px;">Statistiques Bayésiennes</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.7;">Inférence bayésienne, distributions a priori/a posteriori, MCMC, modèles hiérarchiques.</div>
+      <div style="margin-top:10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);opacity:0.8;">M2 · En cours</div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 22px;border-left:3px solid var(--accent);">
+      <div style="font-size:20px;margin-bottom:10px;">🌊</div>
+      <div style="font-weight:600;font-size:14px;margin-bottom:6px;">Modélisations stochastiques</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.7;">Calculs et modélisations stochastiques, processus aléatoires, chaînes de Markov.</div>
+      <div style="margin-top:10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);opacity:0.8;">M2 · En cours</div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 22px;border-left:3px solid var(--accent);">
+      <div style="font-size:20px;margin-bottom:10px;">📈</div>
+      <div style="font-weight:600;font-size:14px;margin-bottom:6px;">Langages & Outils data science</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.7;">Python, R, SAS - pandas, NumPy, scikit-learn, keras, TensorFlow, PyTorch, tidyverse, ggplot2. Git, LaTeX, Jupyter, VSCode.</div>
+      <div style="margin-top:10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);opacity:0.8;">M2 · En cours</div>
+    </div>
+  </div>
+
 </section>
 
 <div class="divider"></div>
 
 <!-- FORMATION -->
 <section id="formation">
-  <div class="section-label">// 04 - Formation</div>
+  <div class="section-label">// 05. Formation</div>
   <h2 class="section-title">Mon <em>parcours académique</em></h2>
   <div class="edu-grid">
     <div class="edu-card" style="border-color:rgba(201,168,76,0.35); position:relative; overflow:hidden;">
-      <div style="position:absolute;top:12px;right:12px;font-family:'DM Mono',monospace;font-size:10px;padding:2px 10px;border-radius:100px;background:rgba(201,168,76,0.1);color:var(--accent);border:1px solid rgba(201,168,76,0.3);">À venir</div>
-      <div class="edu-year" style="color:var(--accent);">2026 – 2027</div>
-      <div class="edu-degree">Master 2 Mathématiques Appliquées & Statistiques</div>
-      <div class="edu-school">Université Clermont Auvergne, Clermont-Ferrand, France</div>
-      <div style="margin-top:10px;font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;">Recherche d'alternance en cours</div>
+      <div style="position:absolute;top:12px;right:12px;font-family:'DM Mono',monospace;font-size:10px;padding:2px 10px;border-radius:100px;background:rgba(201,168,76,0.1);color:var(--accent);border:1px solid rgba(201,168,76,0.3);">En cours</div>
+      <div class="edu-year" style="color:var(--accent);">2026 - 2027</div>
+      <div class="edu-degree">Master 2 Mathématiques Appliquées, Statistiques et Traitement de Données</div>
+      <div class="edu-school">Université Clermont Auvergne, Clermont-Ferrand</div>
+      <div style="margin-top:10px;font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;">Recherche de stage - à partir d'avril 2027</div>
     </div>
     <div class="edu-card" style="border-color:rgba(201,168,76,0.28);">
-      <div style="position:absolute;display:inline-block;font-family:'DM Mono',monospace;font-size:10px;padding:2px 10px;border-radius:100px;background:rgba(201,168,76,0.07);color:var(--accent);border:1px solid rgba(201,168,76,0.18);margin-bottom:6px;">En cours</div>
-      <div class="edu-year" style="margin-top:28px;">2025 – 2026</div>
+      <div class="edu-year">2024 - 2026</div>
       <div class="edu-degree">Master 1 Mathématiques Appliquées & Statistiques</div>
-      <div class="edu-school">Université Clermont Auvergne, Clermont-Ferrand, France</div>
+      <div class="edu-school">Université Clermont Auvergne, Clermont-Ferrand</div>
     </div>
     <div class="edu-card">
-      <div class="edu-year">2024</div>
+      <div class="edu-year">2022 - 2024</div>
       <div class="edu-degree">Licence Mathématiques (Refaite en France)</div>
       <div class="edu-school">Université Clermont Auvergne, Clermont-Ferrand</div>
     </div>
     <div class="edu-card">
       <div class="edu-year">2022</div>
-      <div class="edu-degree">Licence Mathématiques (Sénégal)</div>
-      <div class="edu-school">Université Assane Seck de Ziguinchor</div>
+      <div class="edu-degree">Licence Mathématiques</div>
+      <div class="edu-school">Université Assane Seck de Ziguinchor, Sénégal</div>
     </div>
   </div>
 </section>
@@ -1013,7 +1189,7 @@
 
 <!-- CONTACT -->
 <section id="contact">
-  <div class="section-label">// 05 - Contact</div>
+  <div class="section-label">// 06. Contact</div>
   <h2 class="section-title" style="margin: 0 auto 16px; text-align:center;">Travaillons <em>ensemble</em></h2>
   <p style="color:var(--muted);font-size:15px;max-width:480px;margin:0 auto;">Disponible pour une alternance ou un stage en Data Science. N'hésite pas à me contacter !</p>
   <div class="contact-grid">
@@ -1039,7 +1215,7 @@
 </main>
 
 <footer>
-  <span style="color:var(--accent);font-family:'DM Serif Display',serif;letter-spacing:0.05em;">Baba Galle Ndiaye</span> — Data Scientist · Clermont-Ferrand, France · 2025
+  <span style="color:var(--accent);font-family:'DM Serif Display',serif;letter-spacing:0.05em;">Baba Galle Ndiaye</span> — Data Scientist · Clermont-Ferrand, France · 2026
 </footer>
 
 <script>
@@ -1084,6 +1260,13 @@ function loadPhoto(input) {
     };
     reader.readAsDataURL(input.files[0]);
   }
+}
+
+function switchTab(btn, tabId) {
+  document.querySelectorAll('.proj-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.proj-tab-content').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(tabId).classList.add('active');
 }
 </script>
 
